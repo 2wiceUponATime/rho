@@ -1,0 +1,15 @@
+program ::= statement* Eof;
+
+statement ::=
+  | additive_expr ";"
+  ;
+
+# Left-associative
+additive_expr ::= multiplicative_expr (("+" | "-") multiplicative_expr)*;
+
+# Left-associative
+multiplicative_expr ::= unary_expr (("*" | "/") unary_expr)*;
+
+unary_expr ::= ("+" | "-")? primary_expr;
+
+primary_expr ::= IntLiteral | FloatLiteral | Ident | "(" additive_expr ")";
