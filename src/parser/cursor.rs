@@ -62,3 +62,103 @@ impl<'a> Cursor<'a> {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn first_and_second() {
+        let cursor = Cursor::new("ab");
+        assert_eq!(cursor.first(), 'a');
+        assert_eq!(cursor.second(), 'b');
+    }
+
+    #[test]
+    fn first_and_second_at_eof() {
+        let cursor = Cursor::new("a");
+        assert_eq!(cursor.second(), EOF_CHAR);
+        let cursor = Cursor::new("");
+        assert_eq!(cursor.first(), EOF_CHAR);
+        assert_eq!(cursor.second(), EOF_CHAR);
+    }
+
+    #[test]
+    fn bump_advances() {
+        let mut cursor = Cursor::new("ab");
+        assert_eq!(cursor.bump(), Some('a'));
+        assert_eq!(cursor.bump(), Some('b'));
+        assert_eq!(cursor.bump(), None);
+        assert!(cursor.is_eof());
+    }
+
+    #[test]
+    fn pos_counts_bytes() {
+        let mut cursor = Cursor::new("éa");
+        assert_eq!(cursor.pos(), 0);
+        cursor.bump();
+        assert_eq!(cursor.pos(), 2);
+        cursor.bump();
+        assert_eq!(cursor.pos(), 3);
+    }
+
+    #[test]
+    fn as_str_is_remaining_input() {
+        let mut cursor = Cursor::new("abc");
+        cursor.bump();
+        assert_eq!(cursor.as_str(), "bc");
+    }
+
+    #[test]
+    fn eat_while_stops_at_predicate() {
+        let mut cursor = Cursor::new("aaab");
+        cursor.eat_while(|c| c == 'a');
+        assert_eq!(cursor.as_str(), "b");
+    }
+
+    #[test]
+    fn eat_while_stops_at_eof() {
+        let mut cursor = Cursor::new("aaa");
+        cursor.eat_while(|_| true);
+        assert!(cursor.is_eof());
+    }
+
+    #[test]
+    fn eat_while_does_not_stop_at_literal_nul() {
+        let mut cursor = Cursor::new("a\0b");
+        cursor.eat_while(|_| true);
+        assert!(cursor.is_eof());
+    }
+
+    #[test]
+    fn eat_until_found() {
+        let mut cursor = Cursor::new("abc\ndef");
+        cursor.eat_until(b'\n');
+        assert_eq!(cursor.as_str(), "\ndef");
+        assert_eq!(cursor.pos(), 3);
+    }
+
+    #[test]
+    fn eat_until_not_found() {
+        let mut cursor = Cursor::new("abc");
+        cursor.eat_until(b'\n');
+        assert!(cursor.is_eof());
+        assert_eq!(cursor.pos(), 3);
+    }
+
+    #[test]
+    fn skip_bytes() {
+        let mut cursor = Cursor::new("éab");
+        cursor.skip_bytes(2);
+        assert_eq!(cursor.as_str(), "ab");
+        assert_eq!(cursor.pos(), 2);
+    }
+
+    #[test]
+    fn skip_to_end() {
+        let mut cursor = Cursor::new("abc");
+        cursor.skip_to_end();
+        assert!(cursor.is_eof());
+        assert_eq!(cursor.pos(), 3);
+    }
+}
