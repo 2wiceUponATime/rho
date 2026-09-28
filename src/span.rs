@@ -19,6 +19,14 @@ impl Span {
     pub fn dummy() -> Self {
         Self::new(FileId(0), 0, 0)
     }
+
+    pub fn to(&self, other: Self) -> Self {
+        Self::new(self.file_id, self.start, other.end)
+    }
+
+    pub fn range(&self) -> std::ops::Range<usize> {
+        self.start as usize..self.end as usize
+    }
 }
 
 #[cfg(test)]

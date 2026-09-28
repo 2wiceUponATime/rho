@@ -1,14 +1,17 @@
 program ::= statement* Eof;
 
 statement ::=
-  | additive_expr ";"
+  | expr ";"
   ;
 
-# Left-associative
-additive_expr ::= multiplicative_expr (("+" | "-") multiplicative_expr)*;
+unary_op ::= "+" | "-";
+binary_op ::= "+" | "-" | "*" | "/" | "**";
 
-# Left-associative
-multiplicative_expr ::= unary_expr (("*" | "/") unary_expr)*;
+# Ambiguity resolved in precedence.md
+expr ::=
+  | unary_op expr
+  | expr binary_op expr
+  | primary_expr;
 
 unary_expr ::= ("+" | "-")? primary_expr;
 

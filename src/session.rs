@@ -99,6 +99,11 @@ impl Diagnostics {
             None => level,
         })
     }
+
+    pub fn clear(&mut self) {
+        self.diagnostics.clear();
+        self.max_level = None;
+    }
 }
 
 impl Deref for Diagnostics {
@@ -132,6 +137,10 @@ impl ParseSession {
 
     pub fn source(&self, id: FileId) -> &SourceFile {
         &self.source_files[id.0 as usize]
+    }
+
+    pub fn text(&self, span: Span) -> &str {
+        &self.source(span.file_id).text[span.range()]
     }
 
     pub fn display_span(&self, span: Span) -> String {

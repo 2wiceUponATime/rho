@@ -1,9 +1,10 @@
+use super::cursor::Cursor;
 use crate::{
     interner::Symbol,
-    parser::{cursor::Cursor, lexer::TokenKind::*},
     session::{Diagnostic, FileId, Level, ParseSession},
     span::Span,
 };
+use TokenKind::*;
 
 pub fn is_id_start(c: char) -> bool {
     matches!(c, '$' | '_') || unicode_ident::is_xid_start(c)
@@ -23,19 +24,53 @@ pub enum TokenKind {
     LineComment,
     BlockComment,
 
+    /// `(`
     OpenParen,
+    /// `)`
     CloseParen,
+    /// `+`
     Plus,
+    /// `-`
     Minus,
+    /// `*`
     Star,
+    /// `/`
     Slash,
+    /// `;`
     Semi,
+
+    /// `**`
+    StarStar,
 
     Eof,
     Unknown,
 }
 
-#[derive(Debug, PartialEq, Eq)]
+impl TokenKind {
+    pub fn describe(&self, session: &ParseSession) -> String {
+        match self {
+            Ident(sym) => return format!("'{}'", session.interner.borrow().get(*sym)),
+
+            IntLiteral => "integer literal",
+            FloatLiteral => "float literal",
+            LineComment => "line comment",
+            BlockComment => "block comment",
+            OpenParen => "'('",
+            CloseParen => "')'",
+            Plus => "'+'",
+            Minus => "'-'",
+            Star => "'*'",
+            Slash => "'/'",
+            Semi => "';'",
+            StarStar => "'**'",
+            Eof => "EOF",
+            Unknown => "<error token>",
+        }
+        .into()
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Token {
     pub span: Span,
     pub kind: TokenKind,
@@ -48,7 +83,7 @@ impl Token {
 }
 
 pub struct Lexer<'psess, 'src> {
-    session: &'psess ParseSession,
+    pub session: &'psess ParseSession,
     file_id: FileId,
     src: &'src str,
     cursor: Cursor<'src>,
@@ -99,7 +134,13 @@ impl<'psess, 'src> Lexer<'psess, 'src> {
             ')' => CloseParen,
             '+' => Plus,
             '-' => Minus,
-            '*' => Star,
+            '*' => match self.cursor.first() {
+                '*' => {
+                    self.cursor.bump();
+                    StarStar
+                }
+                _ => Star,
+            },
             '/' => match self.cursor.first() {
                 '/' => self.line_comment(),
                 '*' => self.block_comment(start),
