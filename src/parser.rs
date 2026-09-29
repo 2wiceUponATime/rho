@@ -8,7 +8,7 @@ use std::num::ParseIntError;
 pub use lexer::*;
 
 use crate::{
-    interner::Symbol,
+    interner::{KwSet, Symbol, kw},
     parser::{TokenKind::*, ast::*, token_cursor::TokenCursor},
     session::{Diagnostic, Level, ParseSession},
     span::Span,
@@ -108,9 +108,9 @@ impl<'psess> Parser<'psess> {
         }
     }
 
-    fn eat_ident(&mut self) -> Option<Symbol> {
+    fn eat_ident(&mut self, exclude: KwSet) -> Option<Symbol> {
         match self.cursor.first().kind {
-            Ident(sym) => {
+            Ident(sym) if !exclude.contains(sym) => {
                 self.bump();
                 Some(sym)
             }
@@ -218,7 +218,7 @@ impl<'psess> Parser<'psess> {
                 Expr::FloatLiteral(text.parse().unwrap()),
                 span,
             ))
-        } else if let Some(sym) = self.eat_ident() {
+        } else if let Some(sym) = self.eat_ident(kw::STRICT) {
             Ok(AstNode::new(Expr::Variable(sym), self.cursor.prev().span))
         } else if self.eat(OpenParen) {
             let start = self.cursor.prev().span;

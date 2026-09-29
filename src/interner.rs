@@ -1,13 +1,85 @@
 use indexmap::IndexSet;
 use unicode_normalization::{IsNormalized, UnicodeNormalization};
 
-#[derive(Default)]
+macro_rules! keywords {
+    ($($set:ident { $($name:ident: $str:literal),* $(,)? })*) => {
+        #[allow(non_upper_case_globals)]
+        pub mod kw {
+            use super::{Symbol, KwSet};
+
+            #[repr(u32)]
+            pub enum Keyword {
+                $($($name,)* )*
+            }
+
+            pub const KW_STRINGS: &[&str] = &[$($($str,)*)*];
+            pub const KW_COUNT: u32 = KW_STRINGS.len() as u32;
+
+            $($(pub const $name: Symbol = Symbol(Keyword::$name as u32);)*)*
+            $(pub const $set: KwSet = KwSet::of(&[$($name,)*]);)*
+
+            #[cfg(test)]
+            pub const KEYWORDS: &[(Symbol, &str)] = &[$($(($name, $str),)*)*];
+        }
+    }
+}
+
+keywords! {
+    STRICT {
+        SelfType: "Self",
+        Underscore: "_",
+        Async: "async",
+        Await: "await",
+        Break: "break",
+        Catch: "catch",
+        Class: "class",
+        Const: "const",
+        Continue: "continue",
+        Do: "do",
+        Else: "else",
+        False: "false",
+        Finally: "finally",
+        For: "for",
+        Function: "function",
+        If: "if",
+        In: "in",
+        Is: "is",
+        Let: "let",
+        Loop: "loop",
+        Match: "match",
+        Null: "null",
+        Return: "return",
+        Super: "super",
+        This: "this",
+        Throw: "throw",
+        True: "true",
+        Try: "try",
+        While: "while",
+    }
+    CONTEXTUAL {
+        Constructor: "constructor",
+        Extends: "extends",
+        Private: "private",
+        Protected: "protected",
+        Static: "static",
+    }
+}
+
 pub struct Interner {
     set: IndexSet<Box<str>>,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct Symbol(u32);
+impl Default for Interner {
+    fn default() -> Self {
+        let mut result = Self {
+            set: IndexSet::new(),
+        };
+        for keyword in kw::KW_STRINGS {
+            result.intern(keyword);
+        }
+        result
+    }
+}
 
 impl Interner {
     pub fn new() -> Self {
@@ -31,6 +103,34 @@ impl Interner {
 
     pub fn get(&self, symbol: Symbol) -> &str {
         &self.set[symbol.0 as usize]
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Symbol(u32);
+
+pub struct KwSet(u64);
+
+impl KwSet {
+    pub const EMPTY: Self = Self(0);
+
+    pub const fn of(kws: &[Symbol]) -> Self {
+        let mut bits = 0;
+        let mut i = 0;
+        while i < kws.len() {
+            bits |= 1 << kws[i].0;
+            i += 1;
+        }
+        Self(bits)
+    }
+
+    pub const fn with(&self, other: &KwSet) -> Self {
+        Self(self.0 | other.0)
+    }
+
+    #[inline]
+    pub fn contains(&self, sym: Symbol) -> bool {
+        sym.0 < kw::KW_COUNT && self.0 & (1 << sym.0) != 0
     }
 }
 
@@ -100,5 +200,21 @@ mod tests {
         let symbol = interner.intern("");
         assert_eq!(interner.get(symbol), "");
         assert_ne!(interner.intern("a"), symbol);
+    }
+
+    #[test]
+    fn new_interner_contains_only_keywords() {
+        let interner = Interner::new();
+        assert_eq!(interner.set.len(), kw::KW_COUNT as usize);
+    }
+
+    #[test]
+    fn keywords_are_preinterned() {
+        let mut interner = Interner::new();
+        for (i, &(sym, s)) in kw::KEYWORDS.iter().enumerate() {
+            assert_eq!(sym.0, i as u32, "`{s}` has the wrong symbol ID");
+            assert_eq!(interner.intern(s), sym, "interning `{s}`");
+            assert_eq!(interner.get(sym), s, "resolving `{s}`");
+        }
     }
 }
