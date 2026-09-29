@@ -1,8 +1,10 @@
-program ::= statement* Eof;
+## Program structure
+program ::= declaration* Eof;
 
 sep_list[$item, $sep=","] ::= $item ($sep $item)*;
 list[$item, $sep=","] ::= sep_list[$item, $sep] $sep?;
 
+## Statements
 statement ::=
   | assignment ";"
   | (Ident ":")? block_expr
@@ -10,31 +12,73 @@ statement ::=
   | expr ";"
   ;
 
-# Ambiguity resolved in precedence.md
+## Declarations
+declaration ::=
+  | variable_decl ";"
+  | fn_modifiers "function" Ident "(" params? ")" statement_block
+  | "class" (Ident | "constructor") ("extends" type)? "{" class_member* "}"
+  ;
+
+class_member ::=
+  | class_member_prefix Ident ("=" expr)? ";"
+  | class_member_prefix fn_modifiers Ident "(" params? ")" statement_block
+  ;
+
+class_member_prefix ::= ("private" | "protected")? "static"?;
+
+variable_decl ::=
+  | "let" pattern ("=" expr)?
+  | "const" pattern "=" expr
+  ;
+
+fn_modifiers ::= ("const" | "async")?;
+
+params ::= list[param];
+
+param ::=
+  | pattern ("=" expr)?
+  | "..." pattern
+  ;
+
+## Expressions (ambiguity resolved in precedence.md)
 expr ::=
+  # Operators
   | unary_op expr
   | expr binary_op expr
-  | "[" list["..."? expr] "]"
-  | "(" tuple_elements? ")"
+  | expr "is" type
+
+  # Postfix
   | expr ("." | "?.") Ident
   | expr "?."? "[" expr "]"
-  | expr "!"
   | expr "?."? "(" list["..."? expr]? ")"
-  | expr "?" expr ":" expr
-  | expr "is" type
-  | ("async" | "const")? "(" params ")" "=>" (expr | statement_block)
+  | expr "!"
+
+  # Control flow
   | "return" expr?
-  | "throw" expr?
+  | "throw" expr
   | "break" (":" Ident)? expr?
   | "continue" (":" Ident)?
   | (Ident ":")? block_expr
+
+  # Functions
+  | fn_modifiers "(" params ")" "=>" (expr | statement_block)
+  | fn_modifiers "function" "(" params? ")" statement_block
+
+  # Literals and primaries
   | NoSubTemplate
   | TemplateHead (expr TemplateMiddle)* expr TemplateTail
+  | "[" list["..."? expr] "]"
+  | "(" tuple_elements? ")"
+  | "(" expr ")"
   | IntLiteral
   | FloatLiteral
+  | StringLiteral
+  | "true" | "false" | "null"
+  | "this" | "super" | "Self"
   | Ident
-  | "(" expr ")"
   ;
+
+tuple_elements ::= (expr ",")+ expr?
 
 block_expr ::=
   | "do" block
@@ -46,53 +90,66 @@ block_expr ::=
   | "try" block ("catch" ("(" pattern ")")? block ("finally" block)? | "finally" block)
   ;
 
-declaration ::=
-  | variable_declaration ";"
-  | ("const" | "async")? "function" "(" params? ")" statement_block
-  ;
-
-variable_declaration ::= ("let" | "const") pattern "=" expr;
-
-tuple_elements ::= (expr ",")+ expr?
-
 for_header ::=
-  | (variable_declaration | assignment | expr)? ";" expr? ";" (assignment | expr)?
+  | (variable_decl | assignment | expr)? ";" expr? ";" (assignment | expr)?
   | pattern "in" expr
   ;
-
-params ::= list[pattern];
 
 block ::= "{" statement* expr? "}";
 statement_block ::= "{" statement* "}";
 
-match_arms ::=
-  (match_arm_head (block_expr ","? | expr ","))*
-  match_arm_head expr ","?
-  ;
-
-match_arm_head ::= match_pattern ("if" expr)? "=>";
-
-match_pattern ::= sep_list[expr | type object_pattern, "|"];
-
+## Patterns (destructuring/match)
 pattern ::=
+  | "_"
   | Ident
-  | object_pattern
+  | literal_pattern
+  | type? object_pattern
   | array_pattern
+  | "(" union_pattern ")"
   ;
 
 object_pattern ::= "{" list[Ident (":" pattern)? ("=" expr)?]? "}";
 
 array_pattern ::= "[" list[pattern | "..." Ident]? "]";
 
-assignment ::= assignable assignment_op expr;
+union_pattern ::= "|"? sep_list[pattern, "|"];
 
-# Uses same precedence levels as expr
-assignable ::=
-  | expr "." Ident
-  | expr "[" expr "]"
-  | pattern
+literal_pattern ::=
+  | "-"? (IntLiteral | FloatLiteral)
+  | StringLiteral
+  | "true" | "false" | "null"
   ;
 
+## Match
+match_arms ::=
+  (match_arm_head (block_expr ","? | expr ","))*
+  match_arm_head expr ","?
+  ;
+
+match_arm_head ::= union_pattern ("if" expr)? "=>";
+
+## Assignment
+assignment ::=
+  | assign_target "=" expr
+  | place compound_assignment_op expr
+  ;
+
+# Uses same precedence levels as expr
+assign_target ::=
+  | "_"
+  | place
+  | "[" list[assign_target | "..." assign_target]? "]"
+  | "{" list[Ident (":" assign_target)? ("=" expr)?]? "}"
+  | "(" (assign_target ",")+ assign_target? ")"
+  ;
+
+place ::=
+  | Ident
+  | expr "." Ident
+  | expr "[" expr "]"
+  ;
+
+## Operators
 unary_op ::= "-" | "!" | "~" | "await";
 
 binary_op ::=
@@ -110,8 +167,7 @@ binary_op ::=
   | "**"
   ;
 
-assignment_op ::=
-  | "="
+compound_assignment_op ::=
   | "+=" | "-="
   | "*=" | "/=" | "%="
   | "**="
@@ -121,6 +177,7 @@ assignment_op ::=
   | "??="
   ;
 
+## Types (TODO)
 type ::=
   |
   ;

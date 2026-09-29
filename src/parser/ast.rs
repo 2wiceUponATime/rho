@@ -135,7 +135,6 @@ pub enum BinaryOp {
 
 #[derive(Debug)]
 pub enum UnaryOp {
-    Plus,
     Minus,
 }
 

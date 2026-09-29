@@ -232,12 +232,7 @@ impl<'psess> Parser<'psess> {
     }
 
     fn parse_unary_expr(&mut self) -> PResult<AstNode<Expr>> {
-        if self.eat(Plus) {
-            let start = self.cursor.prev().span;
-            let node = self.parse_unary_expr()?;
-            let span = start.to(self.cursor.prev().span);
-            Ok(AstNode::new(Expr::Unary(node.into(), UnaryOp::Plus), span))
-        } else if self.eat(Minus) {
+        if self.eat(Minus) {
             let start = self.cursor.prev().span;
             let node = self.parse_unary_expr()?;
             let span = start.to(self.cursor.prev().span);

@@ -134,10 +134,5 @@ Operators (highest to lowest precedence):
       <td>Left</td>
       <td>Nullish coalescing operator <br/> <code>x ?? y</code></td>
     </tr>
-    <tr>
-      <td>&mdash;</td>
-      <td>Right</td>
-      <td>Ternary operator <br/> <code>x ? y : z</code></td>
-    </tr>
   </tbody>
 </table>

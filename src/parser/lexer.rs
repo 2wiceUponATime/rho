@@ -67,8 +67,6 @@ pub enum TokenKind {
     DotDotDot,
     /// `?.`
     QuestionDot,
-    /// `?`
-    Question,
     /// `??`
     QuestionQuestion,
     /// `:`
@@ -172,7 +170,6 @@ impl TokenKind {
             Dot => "'.'",
             DotDotDot => "'...'",
             QuestionDot => "'?.'",
-            Question => "'?'",
             QuestionQuestion => "'??'",
             Colon => "':'",
             Tilde => "'~'",
@@ -389,7 +386,7 @@ impl<'psess, 'src> Lexer<'psess, 'src> {
                 ('.', _) => self.bump(1, QuestionDot),
                 ('?', '=') => self.bump(2, QuestionQuestionEq),
                 ('?', _) => self.bump(1, QuestionQuestion),
-                _ => Question,
+                _ => self.unknown(),
             },
             ':' => Colon,
             '~' => Tilde,
@@ -430,11 +427,13 @@ impl<'psess, 'src> Lexer<'psess, 'src> {
                 ('=', _) => self.bump(1, GtEq),
                 _ => Gt,
             },
-            _ => {
-                self.cursor.eat_while(|c| !Lexer::is_known_start(c));
-                Unknown
-            }
+            _ => self.unknown(),
         }
+    }
+
+    fn unknown(&mut self) -> TokenKind {
+        self.cursor.eat_while(|c| !Lexer::is_known_start(c));
+        Unknown
     }
 
     fn ident(&mut self, start: u32) -> TokenKind {
@@ -720,28 +719,29 @@ identifier");
     }
 
     #[test]
-    fn simple_tokens() {
-        let (session, tokens) = lex("( ) + - * / ;");
-        assert_eq!(
-            get_kinds(&tokens),
-            [OpenParen, CloseParen, Plus, Minus, Star, Slash, Semi, Eof]
-        );
-        assert_clean(&session);
-    }
-
-    #[test]
     fn operator_tokens() {
-        let (session, tokens) = lex("[ ] , . ?. ? ?? ??= : ~ ! & ^ | && || = == != \
-             < > <= >= << >> += -= *= /= %= **= &= ^= |= &&= ||= <<= >>=");
+        let (session, tokens) = lex("( ) [ ] { } ; , + - * / % ** . ... ?. ?? ??= : ~ ! & ^ | && || = == != \
+             < > <= >= << >> => += -= *= /= %= **= &= ^= |= &&= ||= <<= >>=");
         assert_eq!(
             get_kinds(&tokens),
             [
+                OpenParen,
+                CloseParen,
                 OpenBracket,
                 CloseBracket,
+                OpenBrace,
+                CloseBrace,
+                Semi,
                 Comma,
+                Plus,
+                Minus,
+                Star,
+                Slash,
+                Percent,
+                StarStar,
                 Dot,
+                DotDotDot,
                 QuestionDot,
-                Question,
                 QuestionQuestion,
                 QuestionQuestionEq,
                 Colon,
@@ -761,6 +761,7 @@ identifier");
                 GtEq,
                 LtLt,
                 GtGt,
+                EqGt,
                 PlusEq,
                 MinusEq,
                 StarEq,
