@@ -32,107 +32,106 @@ pub enum TokenKind {
 
     Ident(Symbol),
 
+    // `!`
+    Exclam,
+    /// `!=`
+    ExclamEq,
+    /// `%`
+    Percent,
+    /// `%=`
+    PercentEq,
+    /// `&`
+    Amp,
+    /// `&&`
+    AmpAmp,
+    /// `&&=`
+    AmpAmpEq,
+    /// `&=`
+    AmpEq,
     /// `(`
     OpenParen,
     /// `)`
     CloseParen,
-    /// `[`
-    OpenBracket,
-    /// `]`
-    CloseBracket,
-    /// `{`
-    OpenBrace,
-    /// `}`
-    CloseBrace,
-    /// `;`
-    Semi,
-    /// `,`
-    Comma,
-
-    /// `+`
-    Plus,
-    /// `-`
-    Minus,
     /// `*`
     Star,
-    /// `/`
-    Slash,
-    /// `%`
-    Percent,
     /// `**`
     StarStar,
+    /// `**=`
+    StarStarEq,
+    /// `*=`
+    StarEq,
+    /// `+`
+    Plus,
+    /// `+=`
+    PlusEq,
+    /// `,`
+    Comma,
+    /// `-`
+    Minus,
+    /// `-=`
+    MinusEq,
     /// `.`
     Dot,
     /// `...`
     DotDotDot,
-    /// `?.`
-    QuestionDot,
-    /// `??`
-    QuestionQuestion,
+    /// `/`
+    Slash,
+    /// `/=`
+    SlashEq,
     /// `:`
     Colon,
-    /// `~`
-    Tilde,
-    /// `!`
-    Exclam,
-    /// `&`
-    Amp,
-    /// `^`
-    Caret,
-    /// `|`
-    Pipe,
-    /// `&&`
-    AmpAmp,
-    /// `||`
-    PipePipe,
+    /// `;`
+    Semi,
+    /// `<`
+    Lt,
+    /// `<<`
+    LtLt,
+    /// `<<=`
+    LtLtEq,
+    /// `<=`
+    LtEq,
     /// `=`
     Eq,
     /// `==`
     EqEq,
-    /// `!=`
-    ExclamEq,
-    /// `<`
-    Lt,
-    /// `>`
-    Gt,
-    /// `<=`
-    LtEq,
-    /// `>=`
-    GtEq,
-    /// `<<`
-    LtLt,
-    /// `>>`
-    GtGt,
     /// `=>`
     EqGt,
-    /// `+=`
-    PlusEq,
-    /// `-=`
-    MinusEq,
-    /// `*=`
-    StarEq,
-    /// `/=`
-    SlashEq,
-    /// `%=`
-    PercentEq,
-    /// `**=`
-    StarStarEq,
-    /// `&=`
-    AmpEq,
-    /// `^=`
-    CaretEq,
-    /// `|=`
-    PipeEq,
-    /// `&&=`
-    AmpAmpEq,
-    /// `||=`
-    PipePipeEq,
-    /// `<<=`
-    LtLtEq,
+    /// `>`
+    Gt,
+    /// `>=`
+    GtEq,
+    /// `>>`
+    GtGt,
     /// `>>=`
     GtGtEq,
+    /// `?.`
+    QuestionDot,
+    /// `??`
+    QuestionQuestion,
     /// `??=`
     QuestionQuestionEq,
+    /// `[`
+    OpenBracket,
+    /// `]`
+    CloseBracket,
+    /// `^`
+    Caret,
+    /// `^=`
+    CaretEq,
+    /// `{`
+    OpenBrace,
+    /// `|`
+    Pipe,
+    /// `|=`
+    PipeEq,
+    /// `||`
+    PipePipe,
+    /// `||=`
+    PipePipeEq,
+    /// `}`
+    CloseBrace,
+    /// `~`
+    Tilde,
 }
 
 impl TokenKind {
@@ -152,57 +151,56 @@ impl TokenKind {
 
             Ident(sym) => return format!("'{}'", session.interner.borrow().get(*sym)),
 
+            Exclam => "'!'",
+            ExclamEq => "'!='",
+            Percent => "'%'",
+            PercentEq => "'%='",
+            Amp => "'&'",
+            AmpAmp => "'&&'",
+            AmpAmpEq => "'&&='",
+            AmpEq => "'&='",
             OpenParen => "'('",
             CloseParen => "')'",
-            OpenBracket => "'['",
-            CloseBracket => "']'",
-            OpenBrace => "'{'",
-            CloseBrace => "'}'",
-            Semi => "';'",
-            Comma => "','",
-
-            Plus => "'+'",
-            Minus => "'-'",
             Star => "'*'",
-            Slash => "'/'",
-            Percent => "'%'",
             StarStar => "'**'",
+            StarStarEq => "'**='",
+            StarEq => "'*='",
+            Plus => "'+'",
+            PlusEq => "'+='",
+            Comma => "','",
+            Minus => "'-'",
+            MinusEq => "'-='",
             Dot => "'.'",
             DotDotDot => "'...'",
-            QuestionDot => "'?.'",
-            QuestionQuestion => "'??'",
+            Slash => "'/'",
+            SlashEq => "'/='",
             Colon => "':'",
-            Tilde => "'~'",
-            Exclam => "'!'",
-            Amp => "'&'",
-            Caret => "'^'",
-            Pipe => "'|'",
-            AmpAmp => "'&&'",
-            PipePipe => "'||'",
+            Semi => "';'",
+            Lt => "'<'",
+            LtLt => "'<<'",
+            LtLtEq => "'<<='",
+            LtEq => "'<='",
             Eq => "'='",
             EqEq => "'=='",
-            ExclamEq => "'!='",
-            Lt => "'<'",
-            Gt => "'>'",
-            LtEq => "'<='",
-            GtEq => "'>='",
-            LtLt => "'<<'",
-            GtGt => "'>>'",
             EqGt => "'=>'",
-            PlusEq => "'+='",
-            MinusEq => "'-='",
-            StarEq => "'*='",
-            SlashEq => "'/='",
-            PercentEq => "'%='",
-            StarStarEq => "'**='",
-            AmpEq => "'&='",
-            CaretEq => "'^='",
-            PipeEq => "'|='",
-            AmpAmpEq => "'&&='",
-            PipePipeEq => "'||='",
-            LtLtEq => "'<<='",
+            Gt => "'>'",
+            GtEq => "'>='",
+            GtGt => "'>>'",
             GtGtEq => "'>>='",
+            QuestionDot => "'?.'",
+            QuestionQuestion => "'??'",
             QuestionQuestionEq => "'??='",
+            OpenBracket => "'['",
+            CloseBracket => "']'",
+            Caret => "'^'",
+            CaretEq => "'^='",
+            OpenBrace => "'{'",
+            Pipe => "'|'",
+            PipeEq => "'|='",
+            PipePipe => "'||'",
+            PipePipeEq => "'||='",
+            CloseBrace => "'}'",
+            Tilde => "'~'",
         }
         .into()
     }
@@ -720,61 +718,61 @@ identifier");
 
     #[test]
     fn operator_tokens() {
-        let (session, tokens) = lex("( ) [ ] { } ; , + - * / % ** . ... ?. ?? ??= : ~ ! & ^ | && || = == != \
-             < > <= >= << >> => += -= *= /= %= **= &= ^= |= &&= ||= <<= >>=");
+        let (session, tokens) = lex("! != % %= & && &&= &= ( ) * ** **= *= +
+            += , - -= . ... / /= : ; < << <<= <= = == => > >= >> >>= ?. ?? ??= [ ] ^ ^= { | |= || ||= } ~");
         assert_eq!(
             get_kinds(&tokens),
             [
+                Exclam,
+                ExclamEq,
+                Percent,
+                PercentEq,
+                Amp,
+                AmpAmp,
+                AmpAmpEq,
+                AmpEq,
                 OpenParen,
                 CloseParen,
-                OpenBracket,
-                CloseBracket,
-                OpenBrace,
-                CloseBrace,
-                Semi,
-                Comma,
-                Plus,
-                Minus,
                 Star,
-                Slash,
-                Percent,
                 StarStar,
+                StarStarEq,
+                StarEq,
+                Plus,
+                PlusEq,
+                Comma,
+                Minus,
+                MinusEq,
                 Dot,
                 DotDotDot,
+                Slash,
+                SlashEq,
+                Colon,
+                Semi,
+                Lt,
+                LtLt,
+                LtLtEq,
+                LtEq,
+                Eq,
+                EqEq,
+                EqGt,
+                Gt,
+                GtEq,
+                GtGt,
+                GtGtEq,
                 QuestionDot,
                 QuestionQuestion,
                 QuestionQuestionEq,
-                Colon,
-                Tilde,
-                Exclam,
-                Amp,
+                OpenBracket,
+                CloseBracket,
                 Caret,
-                Pipe,
-                AmpAmp,
-                PipePipe,
-                Eq,
-                EqEq,
-                ExclamEq,
-                Lt,
-                Gt,
-                LtEq,
-                GtEq,
-                LtLt,
-                GtGt,
-                EqGt,
-                PlusEq,
-                MinusEq,
-                StarEq,
-                SlashEq,
-                PercentEq,
-                StarStarEq,
-                AmpEq,
                 CaretEq,
+                OpenBrace,
+                Pipe,
                 PipeEq,
-                AmpAmpEq,
+                PipePipe,
                 PipePipeEq,
-                LtLtEq,
-                GtGtEq,
+                CloseBrace,
+                Tilde,
                 Eof,
             ]
         );
