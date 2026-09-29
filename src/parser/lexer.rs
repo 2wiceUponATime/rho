@@ -16,18 +16,39 @@ pub fn is_id_continue(c: char) -> bool {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum TokenKind {
-    Ident(Symbol),
+    Eof,
+    Unknown,
+    LineComment,
+    BlockComment,
 
     IntLiteral,
     FloatLiteral,
+    StringLiteral,
 
-    LineComment,
-    BlockComment,
+    NoSubTemplate,
+    TemplateHead,
+    TemplateMiddle,
+    TemplateTail,
+
+    Ident(Symbol),
 
     /// `(`
     OpenParen,
     /// `)`
     CloseParen,
+    /// `[`
+    OpenBracket,
+    /// `]`
+    CloseBracket,
+    /// `{`
+    OpenBrace,
+    /// `}`
+    CloseBrace,
+    /// `;`
+    Semi,
+    /// `,`
+    Comma,
+
     /// `+`
     Plus,
     /// `-`
@@ -36,35 +57,155 @@ pub enum TokenKind {
     Star,
     /// `/`
     Slash,
-    /// `;`
-    Semi,
-
+    /// `%`
+    Percent,
     /// `**`
     StarStar,
-
-    Eof,
-    Unknown,
+    /// `.`
+    Dot,
+    /// `...`
+    DotDotDot,
+    /// `?.`
+    QuestionDot,
+    /// `?`
+    Question,
+    /// `??`
+    QuestionQuestion,
+    /// `:`
+    Colon,
+    /// `~`
+    Tilde,
+    /// `!`
+    Exclam,
+    /// `&`
+    Amp,
+    /// `^`
+    Caret,
+    /// `|`
+    Pipe,
+    /// `&&`
+    AmpAmp,
+    /// `||`
+    PipePipe,
+    /// `=`
+    Eq,
+    /// `==`
+    EqEq,
+    /// `!=`
+    ExclamEq,
+    /// `<`
+    Lt,
+    /// `>`
+    Gt,
+    /// `<=`
+    LtEq,
+    /// `>=`
+    GtEq,
+    /// `<<`
+    LtLt,
+    /// `>>`
+    GtGt,
+    /// `=>`
+    EqGt,
+    /// `+=`
+    PlusEq,
+    /// `-=`
+    MinusEq,
+    /// `*=`
+    StarEq,
+    /// `/=`
+    SlashEq,
+    /// `%=`
+    PercentEq,
+    /// `**=`
+    StarStarEq,
+    /// `&=`
+    AmpEq,
+    /// `^=`
+    CaretEq,
+    /// `|=`
+    PipeEq,
+    /// `&&=`
+    AmpAmpEq,
+    /// `||=`
+    PipePipeEq,
+    /// `<<=`
+    LtLtEq,
+    /// `>>=`
+    GtGtEq,
+    /// `??=`
+    QuestionQuestionEq,
 }
 
 impl TokenKind {
     pub fn describe(&self, session: &ParseSession) -> String {
         match self {
-            Ident(sym) => return format!("'{}'", session.interner.borrow().get(*sym)),
+            Eof => "EOF",
+            Unknown => "<error token>",
+            LineComment => "line comment",
+            BlockComment => "block comment",
 
             IntLiteral => "integer literal",
             FloatLiteral => "float literal",
-            LineComment => "line comment",
-            BlockComment => "block comment",
+            StringLiteral => "string literal",
+
+            NoSubTemplate | TemplateHead => "template string",
+            TemplateMiddle | TemplateTail => "template string continuation",
+
+            Ident(sym) => return format!("'{}'", session.interner.borrow().get(*sym)),
+
             OpenParen => "'('",
             CloseParen => "')'",
+            OpenBracket => "'['",
+            CloseBracket => "']'",
+            OpenBrace => "'{'",
+            CloseBrace => "'}'",
+            Semi => "';'",
+            Comma => "','",
+
             Plus => "'+'",
             Minus => "'-'",
             Star => "'*'",
             Slash => "'/'",
-            Semi => "';'",
+            Percent => "'%'",
             StarStar => "'**'",
-            Eof => "EOF",
-            Unknown => "<error token>",
+            Dot => "'.'",
+            DotDotDot => "'...'",
+            QuestionDot => "'?.'",
+            Question => "'?'",
+            QuestionQuestion => "'??'",
+            Colon => "':'",
+            Tilde => "'~'",
+            Exclam => "'!'",
+            Amp => "'&'",
+            Caret => "'^'",
+            Pipe => "'|'",
+            AmpAmp => "'&&'",
+            PipePipe => "'||'",
+            Eq => "'='",
+            EqEq => "'=='",
+            ExclamEq => "'!='",
+            Lt => "'<'",
+            Gt => "'>'",
+            LtEq => "'<='",
+            GtEq => "'>='",
+            LtLt => "'<<'",
+            GtGt => "'>>'",
+            EqGt => "'=>'",
+            PlusEq => "'+='",
+            MinusEq => "'-='",
+            StarEq => "'*='",
+            SlashEq => "'/='",
+            PercentEq => "'%='",
+            StarStarEq => "'**='",
+            AmpEq => "'&='",
+            CaretEq => "'^='",
+            PipeEq => "'|='",
+            AmpAmpEq => "'&&='",
+            PipePipeEq => "'||='",
+            LtLtEq => "'<<='",
+            GtGtEq => "'>>='",
+            QuestionQuestionEq => "'??='",
         }
         .into()
     }
@@ -82,11 +223,27 @@ impl Token {
     }
 }
 
+#[derive(Clone, Copy)]
+struct TemplateState {
+    start: u32,
+    brace_depth: u32,
+}
+
+impl TemplateState {
+    fn new(start: u32) -> Self {
+        Self {
+            start,
+            brace_depth: 0,
+        }
+    }
+}
+
 pub struct Lexer<'psess, 'src> {
     pub session: &'psess ParseSession,
     file_id: FileId,
     src: &'src str,
     cursor: Cursor<'src>,
+    template_stack: Vec<TemplateState>,
     emitted_eof: bool,
 }
 
@@ -97,6 +254,7 @@ impl<'psess, 'src> Lexer<'psess, 'src> {
             file_id,
             src,
             cursor: Cursor::new(src),
+            template_stack: vec![],
             emitted_eof: false,
         }
     }
@@ -118,7 +276,45 @@ impl<'psess, 'src> Lexer<'psess, 'src> {
     fn is_known_start(c: char) -> bool {
         c.is_whitespace()
             || is_id_start(c)
-            || matches!(c, '0'..='9' | '(' | ')' | '+' | '-' | '*' | '/' | ';')
+            || matches!(
+                c,
+                '0'..='9'
+                    | '"'
+                    | '\''
+                    | '`'
+                    | '('
+                    | ')'
+                    | '['
+                    | ']'
+                    | '{'
+                    | '}'
+                    | ';'
+                    | ','
+                    | '+'
+                    | '-'
+                    | '*'
+                    | '/'
+                    | '%'
+                    | '.'
+                    | '?'
+                    | ':'
+                    | '~'
+                    | '!'
+                    | '&'
+                    | '^'
+                    | '|'
+                    | '='
+                    | '<'
+                    | '>'
+            )
+    }
+
+    #[inline]
+    fn bump(&mut self, n: u8, kind: TokenKind) -> TokenKind {
+        for _ in 0..n {
+            self.cursor.bump();
+        }
+        kind
     }
 
     fn lex_token_kind(&mut self, start: u32) -> TokenKind {
@@ -130,23 +326,110 @@ impl<'psess, 'src> Lexer<'psess, 'src> {
         }
         match c {
             '0'..='9' => self.number_literal(),
+            '"' => self.string_literal(b'"'),
+            '\'' => self.string_literal(b'\''),
+            '`' => self.template_literal(start, true),
             '(' => OpenParen,
             ')' => CloseParen,
-            '+' => Plus,
-            '-' => Minus,
-            '*' => match self.cursor.first() {
-                '*' => {
-                    self.cursor.bump();
-                    StarStar
+            '[' => OpenBracket,
+            ']' => CloseBracket,
+            '{' => match self.template_stack.last_mut() {
+                Some(state) => {
+                    state.brace_depth += 1;
+                    OpenBrace
                 }
+                None => OpenBrace,
+            },
+            '}' => match self.template_stack.last_mut() {
+                Some(&mut TemplateState {
+                    brace_depth: 0,
+                    start,
+                }) => {
+                    self.template_stack.pop();
+                    self.template_literal(start, false)
+                }
+                Some(state) => {
+                    state.brace_depth -= 1;
+                    CloseBrace
+                }
+                None => CloseBrace,
+            },
+            ';' => Semi,
+            ',' => Comma,
+
+            '+' => match self.cursor.first() {
+                '=' => self.bump(1, PlusEq),
+                _ => Plus,
+            },
+            '-' => match self.cursor.first() {
+                '=' => self.bump(1, MinusEq),
+                _ => Minus,
+            },
+            '*' => match (self.cursor.first(), self.cursor.second()) {
+                ('*', '=') => self.bump(2, StarStarEq),
+                ('*', _) => self.bump(1, StarStar),
+                ('=', _) => self.bump(1, StarEq),
                 _ => Star,
             },
             '/' => match self.cursor.first() {
+                '=' => self.bump(1, SlashEq),
                 '/' => self.line_comment(),
                 '*' => self.block_comment(start),
                 _ => Slash,
             },
-            ';' => Semi,
+            '%' => match self.cursor.first() {
+                '=' => self.bump(1, PercentEq),
+                _ => Percent,
+            },
+            '.' => match (self.cursor.first(), self.cursor.second()) {
+                ('.', '.') => self.bump(2, DotDotDot),
+                _ => Dot,
+            },
+            '?' => match (self.cursor.first(), self.cursor.second()) {
+                ('.', _) => self.bump(1, QuestionDot),
+                ('?', '=') => self.bump(2, QuestionQuestionEq),
+                ('?', _) => self.bump(1, QuestionQuestion),
+                _ => Question,
+            },
+            ':' => Colon,
+            '~' => Tilde,
+            '!' => match self.cursor.first() {
+                '=' => self.bump(1, ExclamEq),
+                _ => Exclam,
+            },
+            '&' => match (self.cursor.first(), self.cursor.second()) {
+                ('&', '=') => self.bump(2, AmpAmpEq),
+                ('&', _) => self.bump(1, AmpAmp),
+                ('=', _) => self.bump(1, AmpEq),
+                _ => Amp,
+            },
+            '^' => match self.cursor.first() {
+                '=' => self.bump(1, CaretEq),
+                _ => Caret,
+            },
+            '|' => match (self.cursor.first(), self.cursor.second()) {
+                ('|', '=') => self.bump(2, PipePipeEq),
+                ('|', _) => self.bump(1, PipePipe),
+                ('=', _) => self.bump(1, PipeEq),
+                _ => Pipe,
+            },
+            '=' => match self.cursor.first() {
+                '=' => self.bump(1, EqEq),
+                '>' => self.bump(1, EqGt),
+                _ => Eq,
+            },
+            '<' => match (self.cursor.first(), self.cursor.second()) {
+                ('<', '=') => self.bump(2, LtLtEq),
+                ('<', _) => self.bump(1, LtLt),
+                ('=', _) => self.bump(1, LtEq),
+                _ => Lt,
+            },
+            '>' => match (self.cursor.first(), self.cursor.second()) {
+                ('>', '=') => self.bump(2, GtGtEq),
+                ('>', _) => self.bump(1, GtGt),
+                ('=', _) => self.bump(1, GtEq),
+                _ => Gt,
+            },
             _ => {
                 self.cursor.eat_while(|c| !Lexer::is_known_start(c));
                 Unknown
@@ -172,6 +455,50 @@ impl<'psess, 'src> Lexer<'psess, 'src> {
         IntLiteral
     }
 
+    fn template_literal(&mut self, start: u32, is_head: bool) -> TokenKind {
+        let (end_kind, continue_kind) = if is_head {
+            (NoSubTemplate, TemplateHead)
+        } else {
+            (TemplateTail, TemplateMiddle)
+        };
+        loop {
+            self.cursor.eat_until3(b'`', b'\\', b'$');
+            if self.cursor.is_eof() {
+                self.error(start, start + 1, "Unterminated template literal".into());
+                return end_kind;
+            }
+            let next = self.cursor.bump().unwrap();
+            if next == '`' {
+                return end_kind;
+            }
+            if next == '\\' {
+                self.cursor.bump();
+                continue;
+            }
+            if self.cursor.first() == '{' {
+                self.cursor.bump();
+                self.template_stack.push(TemplateState::new(start));
+                return continue_kind;
+            }
+        }
+    }
+
+    fn string_literal(&mut self, quote: u8) -> TokenKind {
+        let start = self.cursor.pos() - 1;
+        loop {
+            self.cursor.eat_until2(quote, b'\\');
+            if self.cursor.is_eof() {
+                self.error(start, start + 1, "Unterminated string literal".into());
+            }
+            if self.cursor.bump().unwrap() == '\\' {
+                self.cursor.bump();
+                continue;
+            }
+            break;
+        }
+        StringLiteral
+    }
+
     fn check_ident_after_literal(&self, message: &str) {
         let c = self.cursor.first();
         if is_id_start(c) {
@@ -190,32 +517,26 @@ impl<'psess, 'src> Lexer<'psess, 'src> {
         let bytes = self.cursor.as_str().as_bytes();
         let mut depth = 1usize;
         let mut i = 0usize;
-        let mut closed = false;
-        while let Some(current) = bytes.get(i) {
-            let Some(next) = bytes.get(i + 1) else {
-                break;
-            };
-            match (*current, *next) {
-                (b'/', b'*') => {
+        while let Some(offset) = memchr::memchr2(b'/', b'*', &bytes[i..]) {
+            i += offset;
+            match (bytes[i], bytes.get(i + 1)) {
+                (b'/', Some(b'*')) => {
                     depth += 1;
                     i += 2;
                 }
-                (b'*', b'/') => {
+                (b'*', Some(b'/')) => {
                     depth -= 1;
                     i += 2;
                     if depth == 0 {
                         self.cursor.skip_bytes(i);
-                        closed = true;
-                        break;
+                        return BlockComment;
                     }
                 }
                 _ => i += 1,
             }
         }
-        if !closed {
-            self.cursor.skip_to_end();
-            self.error(start, start + 2, "Unterminated block comment".into());
-        }
+        self.cursor.skip_to_end();
+        self.error(start, start + 2, "Unterminated block comment".into());
         BlockComment
     }
 
@@ -409,6 +730,57 @@ identifier");
     }
 
     #[test]
+    fn operator_tokens() {
+        let (session, tokens) = lex("[ ] , . ?. ? ?? ??= : ~ ! & ^ | && || = == != \
+             < > <= >= << >> += -= *= /= %= **= &= ^= |= &&= ||= <<= >>=");
+        assert_eq!(
+            get_kinds(&tokens),
+            [
+                OpenBracket,
+                CloseBracket,
+                Comma,
+                Dot,
+                QuestionDot,
+                Question,
+                QuestionQuestion,
+                QuestionQuestionEq,
+                Colon,
+                Tilde,
+                Exclam,
+                Amp,
+                Caret,
+                Pipe,
+                AmpAmp,
+                PipePipe,
+                Eq,
+                EqEq,
+                ExclamEq,
+                Lt,
+                Gt,
+                LtEq,
+                GtEq,
+                LtLt,
+                GtGt,
+                PlusEq,
+                MinusEq,
+                StarEq,
+                SlashEq,
+                PercentEq,
+                StarStarEq,
+                AmpEq,
+                CaretEq,
+                PipeEq,
+                AmpAmpEq,
+                PipePipeEq,
+                LtLtEq,
+                GtGtEq,
+                Eof,
+            ]
+        );
+        assert_clean(&session);
+    }
+
+    #[test]
     fn eof() {
         let (session, tokens) = lex("   ");
         assert_eq!(get_kinds(&tokens), [Eof]);
@@ -439,50 +811,43 @@ identifier");
     }
 
     #[test]
-    fn error_bad_float_literals() {
+    fn dot_only_float_literals_lex_as_dot() {
         let (session, tokens) = lex("1. .5 1.2.3");
         assert_eq!(
             get_kinds(&tokens),
             [
                 // 1.
                 IntLiteral,
-                Unknown,
+                Dot,
                 // .5
-                Unknown,
+                Dot,
                 IntLiteral,
                 // 1.2.3
                 FloatLiteral,
-                Unknown,
+                Dot,
                 IntLiteral,
                 Eof
             ]
         );
-        assert_diags(
-            &session,
-            &[
-                (1, 2, UNEXPECTED_CHAR),
-                (3, 4, UNEXPECTED_CHAR),
-                (9, 10, UNEXPECTED_CHAR),
-            ],
-        );
+        assert_clean(&session);
     }
 
     #[test]
-    fn error_double_dot() {
+    fn double_dot_lexes_as_two_dots() {
         let (session, tokens) = lex("1..2");
-        assert_eq!(get_kinds(&tokens), [IntLiteral, Unknown, IntLiteral, Eof]);
-        assert_eq!(get_spans(&tokens), [(0, 1), (1, 3), (3, 4), (4, 4)]);
-        assert_diags(&session, &[(1, 3, UNEXPECTED_CHAR)]);
+        assert_eq!(get_kinds(&tokens), [IntLiteral, Dot, Dot, IntLiteral, Eof]);
+        assert_eq!(get_spans(&tokens), [(0, 1), (1, 2), (2, 3), (3, 4), (4, 4)]);
+        assert_clean(&session);
     }
 
     #[test]
-    fn error_dot_before_ident() {
+    fn dot_before_ident_lexes_as_dot() {
         let (session, tokens) = lex("1.e");
         assert_matches!(
             get_kinds(&tokens).as_slice(),
-            [IntLiteral, Unknown, Ident(_), Eof]
+            [IntLiteral, Dot, Ident(_), Eof]
         );
-        assert_diags(&session, &[(1, 2, UNEXPECTED_CHAR)]);
+        assert_clean(&session);
     }
 
     #[test]
@@ -493,6 +858,13 @@ identifier");
             &session,
             &[(0, 1, UNEXPECTED_CHAR), (2, 5, UNEXPECTED_CHAR)],
         );
+    }
+
+    #[test]
+    fn error_unexpected_char_does_not_swallow_known_token() {
+        let (session, tokens) = lex("@[");
+        assert_eq!(get_kinds(&tokens), [Unknown, OpenBracket, Eof]);
+        assert_diags(&session, &[(0, 1, UNEXPECTED_CHAR)]);
     }
 
     #[test]

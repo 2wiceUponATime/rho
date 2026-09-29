@@ -1,6 +1,6 @@
 use std::str::Chars;
 
-const EOF_CHAR: char = '\0';
+pub const EOF_CHAR: char = '\0';
 
 pub struct Cursor<'a> {
     chars: Chars<'a>,
@@ -60,6 +60,20 @@ impl<'a> Cursor<'a> {
             Some(index) => self.as_str()[index..].chars(),
             None => "".chars(),
         }
+    }
+
+    pub fn eat_until2(&mut self, byte1: u8, byte2: u8) {
+        self.chars = match memchr::memchr2(byte1, byte2, self.as_str().as_bytes()) {
+            Some(index) => self.as_str()[index..].chars(),
+            None => "".chars(),
+        };
+    }
+
+    pub fn eat_until3(&mut self, byte1: u8, byte2: u8, byte3: u8) {
+        self.chars = match memchr::memchr3(byte1, byte2, byte3, self.as_str().as_bytes()) {
+            Some(index) => self.as_str()[index..].chars(),
+            None => "".chars(),
+        };
     }
 }
 

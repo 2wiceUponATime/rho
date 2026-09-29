@@ -24,6 +24,20 @@ A rule name must match the regular expression `[a-z_][a-z0-9_]*`. The entry poin
 program ::= expr+;
 ```
 
+A rule can be given a list of parameters (matching `$[a-z0-9_]+`) that can be referenced by name. A rule parameter acts as a parenthesized expression.
+
+```
+list[$item, $sep] ::= $item ($sep $item)*;
+# Equivalent of '(parameter | spread) ("," (parameter | spread))*'
+parameters ::= list[parameter | spread, ","];
+```
+
+A parameter can be given a default value with `=`.
+
+```
+list[$item, $sep=","] ::= $item ($sep $item)*;
+```
+
 ## Tokens
 
 Tokens can be referenced by their TokenKind ([lexer.rs](../src/parser/lexer.rs)) enum name.
@@ -70,10 +84,10 @@ program ::= program statement | statement;
 list ::= list ("," | ";") list_item | list_item;
 ```
 
-Empty alternatives in a `|` expression are ignored. The `?` and `*` operators are the only way to make a rule optional.
+Empty alternatives in a `|` expression have no effect. The `?` and `*` operators are the only way to make a rule optional.
 
 ```
-# `statement` cannot match nothing
+# Equivalent of 'if_statement | expr ";"'
 statement ::=
   | if_statement
   | expr ";"
