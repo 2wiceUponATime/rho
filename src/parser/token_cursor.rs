@@ -1,7 +1,4 @@
-use crate::parser::{
-    Lexer, Token,
-    TokenKind::{BlockComment, Eof, LineComment},
-};
+use crate::parser::{Lexer, Token, TokenKind::*};
 
 pub struct TokenCursor {
     tokens: Vec<Token>,
@@ -43,7 +40,7 @@ impl From<Lexer<'_, '_>> for TokenCursor {
     fn from(lexer: Lexer) -> Self {
         TokenCursor::new(
             lexer
-                .filter(|t| !matches!(t.kind, LineComment | BlockComment))
+                .filter(|t| !matches!(t.kind, LineComment | BlockComment | Unknown))
                 .collect(),
         )
     }

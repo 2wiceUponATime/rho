@@ -14,10 +14,11 @@ fn main() {
     let mut session = ParseSession::new();
     let id = session.add_source_file(path.into()).unwrap();
     let lexer = Lexer::new(id, &session, &session.source(id).text);
+    let mut parser = Parser::new(lexer);
+    println!("{}", parser.parse_program().display(&session));
     for diag in session.diagnostics.borrow().iter() {
-        eprintln!("{}", session.display_diag(diag));
+        eprintln!("{}", session.display_diag(diag))
     }
-    session.diagnostics.borrow_mut().clear();
     if session
         .diagnostics
         .borrow()
@@ -26,10 +27,4 @@ fn main() {
     {
         process::exit(1);
     }
-    let mut parser = Parser::new(lexer);
-    println!("{}", parser.parse_program().display(&session));
-    for diag in session.diagnostics.borrow().iter() {
-        eprintln!("{}", session.display_diag(diag))
-    }
-    session.diagnostics.borrow_mut().clear();
 }
