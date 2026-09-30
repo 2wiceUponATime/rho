@@ -657,7 +657,11 @@ identifier");
             let (session, tokens) = lex(lexeme);
             let len = lexeme.len() as u32;
             assert_eq!(get_kinds(&tokens), [kind, Eof], "lexing {lexeme:?}");
-            assert_eq!(get_spans(&tokens), [(0, len), (len, len)], "lexing {lexeme:?}");
+            assert_eq!(
+                get_spans(&tokens),
+                [(0, len), (len, len)],
+                "lexing {lexeme:?}"
+            );
             assert_clean(&session);
         }
     }

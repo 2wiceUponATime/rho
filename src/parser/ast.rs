@@ -121,16 +121,48 @@ impl Expr {
 
 #[derive(Debug)]
 pub enum BinaryOp {
-    /// `a + b`
+    /// `x ** y`
+    Power,
+    /// `x * x`
+    Multiply,
+    /// `x / y`
+    Divide,
+    /// `x % y`
+    Remainder,
+    /// `x + y`
     Add,
-    /// `a - b`
-    Sub,
-    /// `a * b`
-    Mul,
-    /// `a / b`
-    Div,
-    /// `a ** b`
-    Pow,
+    /// `x - y`
+    Subtract,
+    /// `x << y`
+    LeftShift,
+    /// `x >> y`
+    RightShift,
+    /// `x & y`
+    BitAnd,
+    /// `x ^ y`
+    BitXor,
+    /// `x | y`
+    BitOr,
+    /// `x < y`
+    Less,
+    /// `x <= y`
+    LessEq,
+    /// `x > y`
+    Greater,
+    /// `x >= y`
+    GreaterEq,
+    /// `x is T`
+    Is,
+    /// `x == y`
+    Equal,
+    /// `x != y`
+    NotEqual,
+    /// `x && y`
+    LogicAnd,
+    /// `x || y`
+    LogicOr,
+    /// `x ?? y`
+    NullishCoalesce,
 }
 
 #[derive(Debug)]

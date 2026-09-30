@@ -1,7 +1,7 @@
 use std::{env, process};
 
 use rho::{
-    parser::Lexer,
+    parser::{Lexer, Parser},
     session::{Level, ParseSession},
 };
 
@@ -26,11 +26,10 @@ fn main() {
     {
         process::exit(1);
     }
-    println!("{:#?}", lexer.collect::<Vec<_>>());
-    // let mut parser = Parser::new(lexer);
-    // println!("{}", parser.parse_program().display(&session));
-    // for diag in session.diagnostics.borrow().iter() {
-    //     eprintln!("{}", session.display_diag(diag))
-    // }
-    // session.diagnostics.borrow_mut().clear();
+    let mut parser = Parser::new(lexer);
+    println!("{}", parser.parse_program().display(&session));
+    for diag in session.diagnostics.borrow().iter() {
+        eprintln!("{}", session.display_diag(diag))
+    }
+    session.diagnostics.borrow_mut().clear();
 }

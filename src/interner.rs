@@ -1,6 +1,6 @@
 use indexmap::IndexSet;
-use unicode_normalization::{IsNormalized, UnicodeNormalization};
 use kw::Keyword;
+use unicode_normalization::{IsNormalized, UnicodeNormalization};
 
 macro_rules! keywords {
     ($($set:ident { $($name:ident: $str:literal,)* })*) => {
