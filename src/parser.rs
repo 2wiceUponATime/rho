@@ -8,7 +8,7 @@ use std::num::ParseIntError;
 pub use lexer::*;
 
 use crate::{
-    interner::{KwSet, Symbol, kw},
+    interner::{KwSet, Symbol},
     parser::{TokenKind::*, ast::*, token_cursor::TokenCursor},
     session::{Diagnostic, Level, ParseSession},
     span::Span,
@@ -218,7 +218,7 @@ impl<'psess> Parser<'psess> {
                 Expr::FloatLiteral(text.parse().unwrap()),
                 span,
             ))
-        } else if let Some(sym) = self.eat_ident(kw::STRICT) {
+        } else if let Some(sym) = self.eat_ident(KwSet::STRICT) {
             Ok(AstNode::new(Expr::Variable(sym), self.cursor.prev().span))
         } else if self.eat(OpenParen) {
             let start = self.cursor.prev().span;

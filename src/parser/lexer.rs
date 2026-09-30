@@ -6,6 +6,33 @@ use crate::{
 };
 use TokenKind::*;
 
+macro_rules! token_kinds {
+    (
+        other { $($other:tt)* }
+        punctuation { $($name:ident => $lexeme:expr,)* $(,)? }
+    ) => {
+        #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+        pub enum TokenKind {
+            $(
+                #[doc = concat!("`", $lexeme, "`")]
+                $name,
+            )*
+            $($other)*
+        }
+
+        impl TokenKind {
+            pub const PUNCTUATION: &[(TokenKind, &str)] = &[$((Self::$name, $lexeme),)*];
+
+            fn lexeme(&self) -> Option<&str> {
+                match self {
+                    $(Self::$name => Some($lexeme),)*
+                    _ => None,
+                }
+            }
+        }
+    };
+}
+
 pub fn is_id_start(c: char) -> bool {
     matches!(c, '$' | '_') || unicode_ident::is_xid_start(c)
 }
@@ -14,128 +41,84 @@ pub fn is_id_continue(c: char) -> bool {
     c == '$' || unicode_ident::is_xid_continue(c)
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum TokenKind {
-    Eof,
-    Unknown,
-    LineComment,
-    BlockComment,
+token_kinds! {
+    other {
+        Eof,
+        Unknown,
+        LineComment,
+        BlockComment,
 
-    IntLiteral,
-    FloatLiteral,
-    StringLiteral,
+        IntLiteral,
+        FloatLiteral,
+        StringLiteral,
 
-    NoSubTemplate,
-    TemplateHead,
-    TemplateMiddle,
-    TemplateTail,
+        NoSubTemplate,
+        TemplateHead,
+        TemplateMiddle,
+        TemplateTail,
 
-    Ident(Symbol),
-
-    // `!`
-    Exclam,
-    /// `!=`
-    ExclamEq,
-    /// `%`
-    Percent,
-    /// `%=`
-    PercentEq,
-    /// `&`
-    Amp,
-    /// `&&`
-    AmpAmp,
-    /// `&&=`
-    AmpAmpEq,
-    /// `&=`
-    AmpEq,
-    /// `(`
-    OpenParen,
-    /// `)`
-    CloseParen,
-    /// `*`
-    Star,
-    /// `**`
-    StarStar,
-    /// `**=`
-    StarStarEq,
-    /// `*=`
-    StarEq,
-    /// `+`
-    Plus,
-    /// `+=`
-    PlusEq,
-    /// `,`
-    Comma,
-    /// `-`
-    Minus,
-    /// `-=`
-    MinusEq,
-    /// `.`
-    Dot,
-    /// `...`
-    DotDotDot,
-    /// `/`
-    Slash,
-    /// `/=`
-    SlashEq,
-    /// `:`
-    Colon,
-    /// `;`
-    Semi,
-    /// `<`
-    Lt,
-    /// `<<`
-    LtLt,
-    /// `<<=`
-    LtLtEq,
-    /// `<=`
-    LtEq,
-    /// `=`
-    Eq,
-    /// `==`
-    EqEq,
-    /// `=>`
-    EqGt,
-    /// `>`
-    Gt,
-    /// `>=`
-    GtEq,
-    /// `>>`
-    GtGt,
-    /// `>>=`
-    GtGtEq,
-    /// `?.`
-    QuestionDot,
-    /// `??`
-    QuestionQuestion,
-    /// `??=`
-    QuestionQuestionEq,
-    /// `[`
-    OpenBracket,
-    /// `]`
-    CloseBracket,
-    /// `^`
-    Caret,
-    /// `^=`
-    CaretEq,
-    /// `{`
-    OpenBrace,
-    /// `|`
-    Pipe,
-    /// `|=`
-    PipeEq,
-    /// `||`
-    PipePipe,
-    /// `||=`
-    PipePipeEq,
-    /// `}`
-    CloseBrace,
-    /// `~`
-    Tilde,
+        Ident(Symbol),
+    }
+    punctuation {
+        Exclam => "!",
+        ExclamEq => "!=",
+        Percent => "%",
+        PercentEq => "%=",
+        Amp => "&",
+        AmpAmp => "&&",
+        AmpAmpEq => "&&=",
+        AmpEq => "&=",
+        OpenParen => "(",
+        CloseParen => ")",
+        Star => "*",
+        StarStar => "**",
+        StarStarEq => "**=",
+        StarEq => "*=",
+        Plus => "+",
+        PlusEq => "+=",
+        Comma => ",",
+        Minus => "-",
+        MinusEq => "-=",
+        MinusGt => "->",
+        Dot => ".",
+        DotDotDot => "...",
+        Slash => "/",
+        SlashEq => "/=",
+        Colon => ":",
+        Semi => ";",
+        Lt => "<",
+        LtLt => "<<",
+        LtLtEq => "<<=",
+        LtEq => "<=",
+        Eq => "=",
+        EqEq => "==",
+        EqGt => "=>",
+        Gt => ">",
+        GtEq => ">=",
+        GtGt => ">>",
+        GtGtEq => ">>=",
+        QuestionDot => "?.",
+        QuestionQuestion => "??",
+        QuestionQuestionEq => "??=",
+        OpenBracket => "[",
+        CloseBracket => "]",
+        Caret => "^",
+        CaretEq => "^=",
+        OpenBrace => "{",
+        Pipe => "|",
+        PipeEq => "|=",
+        PipePipe => "||",
+        PipePipeEq => "||=",
+        CloseBrace => "}",
+        Tilde => "~",
+    }
 }
 
 impl TokenKind {
     pub fn describe(&self, session: &ParseSession) -> String {
+        if let Some(lexeme) = self.lexeme() {
+            return format!("'{lexeme}'");
+        }
         match self {
             Eof => "EOF",
             Unknown => "<error token>",
@@ -151,56 +134,7 @@ impl TokenKind {
 
             Ident(sym) => return format!("'{}'", session.interner.borrow().get(*sym)),
 
-            Exclam => "'!'",
-            ExclamEq => "'!='",
-            Percent => "'%'",
-            PercentEq => "'%='",
-            Amp => "'&'",
-            AmpAmp => "'&&'",
-            AmpAmpEq => "'&&='",
-            AmpEq => "'&='",
-            OpenParen => "'('",
-            CloseParen => "')'",
-            Star => "'*'",
-            StarStar => "'**'",
-            StarStarEq => "'**='",
-            StarEq => "'*='",
-            Plus => "'+'",
-            PlusEq => "'+='",
-            Comma => "','",
-            Minus => "'-'",
-            MinusEq => "'-='",
-            Dot => "'.'",
-            DotDotDot => "'...'",
-            Slash => "'/'",
-            SlashEq => "'/='",
-            Colon => "':'",
-            Semi => "';'",
-            Lt => "'<'",
-            LtLt => "'<<'",
-            LtLtEq => "'<<='",
-            LtEq => "'<='",
-            Eq => "'='",
-            EqEq => "'=='",
-            EqGt => "'=>'",
-            Gt => "'>'",
-            GtEq => "'>='",
-            GtGt => "'>>'",
-            GtGtEq => "'>>='",
-            QuestionDot => "'?.'",
-            QuestionQuestion => "'??'",
-            QuestionQuestionEq => "'??='",
-            OpenBracket => "'['",
-            CloseBracket => "']'",
-            Caret => "'^'",
-            CaretEq => "'^='",
-            OpenBrace => "'{'",
-            Pipe => "'|'",
-            PipeEq => "'|='",
-            PipePipe => "'||'",
-            PipePipeEq => "'||='",
-            CloseBrace => "'}'",
-            Tilde => "'~'",
+            _ => unreachable!(),
         }
         .into()
     }
@@ -324,16 +258,92 @@ impl<'psess, 'src> Lexer<'psess, 'src> {
             '"' => self.string_literal(b'"'),
             '\'' => self.string_literal(b'\''),
             '`' => self.template_literal(start, true),
+
+            '!' => match self.cursor.first() {
+                '=' => self.bump(1, ExclamEq),
+                _ => Exclam,
+            },
+            '%' => match self.cursor.first() {
+                '=' => self.bump(1, PercentEq),
+                _ => Percent,
+            },
+            '&' => match (self.cursor.first(), self.cursor.second()) {
+                ('&', '=') => self.bump(2, AmpAmpEq),
+                ('&', _) => self.bump(1, AmpAmp),
+                ('=', _) => self.bump(1, AmpEq),
+                _ => Amp,
+            },
             '(' => OpenParen,
             ')' => CloseParen,
+            '*' => match (self.cursor.first(), self.cursor.second()) {
+                ('*', '=') => self.bump(2, StarStarEq),
+                ('*', _) => self.bump(1, StarStar),
+                ('=', _) => self.bump(1, StarEq),
+                _ => Star,
+            },
+            '+' => match self.cursor.first() {
+                '=' => self.bump(1, PlusEq),
+                _ => Plus,
+            },
+            ',' => Comma,
+            '-' => match self.cursor.first() {
+                '=' => self.bump(1, MinusEq),
+                '>' => self.bump(1, MinusGt),
+                _ => Minus,
+            },
+            '.' => match (self.cursor.first(), self.cursor.second()) {
+                ('.', '.') => self.bump(2, DotDotDot),
+                _ => Dot,
+            },
+            '/' => match self.cursor.first() {
+                '/' => self.line_comment(),
+                '*' => self.block_comment(start),
+                '=' => self.bump(1, SlashEq),
+                _ => Slash,
+            },
+            ':' => Colon,
+            ';' => Semi,
+            '<' => match (self.cursor.first(), self.cursor.second()) {
+                ('<', '=') => self.bump(2, LtLtEq),
+                ('<', _) => self.bump(1, LtLt),
+                ('=', _) => self.bump(1, LtEq),
+                _ => Lt,
+            },
+            '=' => match self.cursor.first() {
+                '=' => self.bump(1, EqEq),
+                '>' => self.bump(1, EqGt),
+                _ => Eq,
+            },
+            '>' => match (self.cursor.first(), self.cursor.second()) {
+                ('>', '=') => self.bump(2, GtGtEq),
+                ('=', _) => self.bump(1, GtEq),
+                ('>', _) => self.bump(1, GtGt),
+                _ => Gt,
+            },
+            '?' => match (self.cursor.first(), self.cursor.second()) {
+                ('?', '=') => self.bump(2, QuestionQuestionEq),
+                ('.', _) => self.bump(1, QuestionDot),
+                ('?', _) => self.bump(1, QuestionQuestion),
+                _ => self.unknown(),
+            },
             '[' => OpenBracket,
             ']' => CloseBracket,
+            '^' => match self.cursor.first() {
+                '=' => self.bump(1, CaretEq),
+                _ => Caret,
+            },
             '{' => match self.template_stack.last_mut() {
                 Some(state) => {
                     state.brace_depth += 1;
                     OpenBrace
                 }
                 None => OpenBrace,
+            },
+            '|' => match (self.cursor.first(), self.cursor.second()) {
+                ('|', '=') => self.bump(2, PipePipeEq),
+                ('=', _) => self.bump(1, PipeEq),
+                ('|', _) => self.bump(1, PipePipe),
+                _ => Pipe,
             },
             '}' => match self.template_stack.last_mut() {
                 Some(&mut TemplateState {
@@ -349,82 +359,7 @@ impl<'psess, 'src> Lexer<'psess, 'src> {
                 }
                 None => CloseBrace,
             },
-            ';' => Semi,
-            ',' => Comma,
-
-            '+' => match self.cursor.first() {
-                '=' => self.bump(1, PlusEq),
-                _ => Plus,
-            },
-            '-' => match self.cursor.first() {
-                '=' => self.bump(1, MinusEq),
-                _ => Minus,
-            },
-            '*' => match (self.cursor.first(), self.cursor.second()) {
-                ('*', '=') => self.bump(2, StarStarEq),
-                ('*', _) => self.bump(1, StarStar),
-                ('=', _) => self.bump(1, StarEq),
-                _ => Star,
-            },
-            '/' => match self.cursor.first() {
-                '=' => self.bump(1, SlashEq),
-                '/' => self.line_comment(),
-                '*' => self.block_comment(start),
-                _ => Slash,
-            },
-            '%' => match self.cursor.first() {
-                '=' => self.bump(1, PercentEq),
-                _ => Percent,
-            },
-            '.' => match (self.cursor.first(), self.cursor.second()) {
-                ('.', '.') => self.bump(2, DotDotDot),
-                _ => Dot,
-            },
-            '?' => match (self.cursor.first(), self.cursor.second()) {
-                ('.', _) => self.bump(1, QuestionDot),
-                ('?', '=') => self.bump(2, QuestionQuestionEq),
-                ('?', _) => self.bump(1, QuestionQuestion),
-                _ => self.unknown(),
-            },
-            ':' => Colon,
             '~' => Tilde,
-            '!' => match self.cursor.first() {
-                '=' => self.bump(1, ExclamEq),
-                _ => Exclam,
-            },
-            '&' => match (self.cursor.first(), self.cursor.second()) {
-                ('&', '=') => self.bump(2, AmpAmpEq),
-                ('&', _) => self.bump(1, AmpAmp),
-                ('=', _) => self.bump(1, AmpEq),
-                _ => Amp,
-            },
-            '^' => match self.cursor.first() {
-                '=' => self.bump(1, CaretEq),
-                _ => Caret,
-            },
-            '|' => match (self.cursor.first(), self.cursor.second()) {
-                ('|', '=') => self.bump(2, PipePipeEq),
-                ('|', _) => self.bump(1, PipePipe),
-                ('=', _) => self.bump(1, PipeEq),
-                _ => Pipe,
-            },
-            '=' => match self.cursor.first() {
-                '=' => self.bump(1, EqEq),
-                '>' => self.bump(1, EqGt),
-                _ => Eq,
-            },
-            '<' => match (self.cursor.first(), self.cursor.second()) {
-                ('<', '=') => self.bump(2, LtLtEq),
-                ('<', _) => self.bump(1, LtLt),
-                ('=', _) => self.bump(1, LtEq),
-                _ => Lt,
-            },
-            '>' => match (self.cursor.first(), self.cursor.second()) {
-                ('>', '=') => self.bump(2, GtGtEq),
-                ('>', _) => self.bump(1, GtGt),
-                ('=', _) => self.bump(1, GtEq),
-                _ => Gt,
-            },
             _ => self.unknown(),
         }
     }
@@ -717,65 +652,30 @@ identifier");
     }
 
     #[test]
-    fn operator_tokens() {
-        let (session, tokens) = lex("! != % %= & && &&= &= ( ) * ** **= *= +
-            += , - -= . ... / /= : ; < << <<= <= = == => > >= >> >>= ?. ?? ??= [ ] ^ ^= { | |= || ||= } ~");
-        assert_eq!(
-            get_kinds(&tokens),
-            [
-                Exclam,
-                ExclamEq,
-                Percent,
-                PercentEq,
-                Amp,
-                AmpAmp,
-                AmpAmpEq,
-                AmpEq,
-                OpenParen,
-                CloseParen,
-                Star,
-                StarStar,
-                StarStarEq,
-                StarEq,
-                Plus,
-                PlusEq,
-                Comma,
-                Minus,
-                MinusEq,
-                Dot,
-                DotDotDot,
-                Slash,
-                SlashEq,
-                Colon,
-                Semi,
-                Lt,
-                LtLt,
-                LtLtEq,
-                LtEq,
-                Eq,
-                EqEq,
-                EqGt,
-                Gt,
-                GtEq,
-                GtGt,
-                GtGtEq,
-                QuestionDot,
-                QuestionQuestion,
-                QuestionQuestionEq,
-                OpenBracket,
-                CloseBracket,
-                Caret,
-                CaretEq,
-                OpenBrace,
-                Pipe,
-                PipeEq,
-                PipePipe,
-                PipePipeEq,
-                CloseBrace,
-                Tilde,
-                Eof,
-            ]
-        );
+    fn punctuation_tokens() {
+        for &(kind, lexeme) in TokenKind::PUNCTUATION {
+            let (session, tokens) = lex(lexeme);
+            let len = lexeme.len() as u32;
+            assert_eq!(get_kinds(&tokens), [kind, Eof], "lexing {lexeme:?}");
+            assert_eq!(get_spans(&tokens), [(0, len), (len, len)], "lexing {lexeme:?}");
+            assert_clean(&session);
+        }
+    }
+
+    #[test]
+    fn punctuation_sequence() {
+        let src = TokenKind::PUNCTUATION
+            .iter()
+            .map(|&(_, lexeme)| lexeme)
+            .collect::<Vec<_>>()
+            .join(" ");
+        let (session, tokens) = lex(&src);
+        let expected = TokenKind::PUNCTUATION
+            .iter()
+            .map(|&(kind, _)| kind)
+            .chain([Eof])
+            .collect::<Vec<_>>();
+        assert_eq!(get_kinds(&tokens), expected);
         assert_clean(&session);
     }
 

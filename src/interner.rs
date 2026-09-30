@@ -1,25 +1,30 @@
 use indexmap::IndexSet;
 use unicode_normalization::{IsNormalized, UnicodeNormalization};
+use kw::Keyword;
 
 macro_rules! keywords {
-    ($($set:ident { $($name:ident: $str:literal),* $(,)? })*) => {
+    ($($set:ident { $($name:ident: $str:literal,)* })*) => {
         #[allow(non_upper_case_globals)]
         pub mod kw {
-            use super::{Symbol, KwSet};
+            use super::Symbol;
 
             #[repr(u32)]
             pub enum Keyword {
                 $($($name,)* )*
             }
 
-            pub const KW_STRINGS: &[&str] = &[$($($str,)*)*];
-            pub const KW_COUNT: u32 = KW_STRINGS.len() as u32;
+            impl Keyword {
+                pub const STRINGS: &[&str] = &[$($($str,)*)*];
+                pub const COUNT: u32 = Self::STRINGS.len() as u32;
+            }
 
             $($(pub const $name: Symbol = Symbol(Keyword::$name as u32);)*)*
-            $(pub const $set: KwSet = KwSet::of(&[$($name,)*]);)*
 
-            #[cfg(test)]
             pub const KEYWORDS: &[(Symbol, &str)] = &[$($(($name, $str),)*)*];
+        }
+
+        impl KwSet {
+            $(pub const $set: KwSet = KwSet::of(&[$(kw::$name,)*]);)*
         }
     }
 }
@@ -74,7 +79,7 @@ impl Default for Interner {
         let mut result = Self {
             set: IndexSet::new(),
         };
-        for keyword in kw::KW_STRINGS {
+        for keyword in Keyword::STRINGS {
             result.intern(keyword);
         }
         result
@@ -109,6 +114,7 @@ impl Interner {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Symbol(u32);
 
+#[derive(Clone, Copy)]
 pub struct KwSet(u64);
 
 impl KwSet {
@@ -124,13 +130,21 @@ impl KwSet {
         Self(bits)
     }
 
-    pub const fn with(&self, other: &KwSet) -> Self {
+    pub const fn with(&self, sym: Symbol) -> Self {
+        if sym.0 >= Keyword::COUNT {
+            *self
+        } else {
+            Self(self.0 & (1 << sym.0))
+        }
+    }
+
+    pub const fn union(&self, other: &KwSet) -> Self {
         Self(self.0 | other.0)
     }
 
     #[inline]
     pub fn contains(&self, sym: Symbol) -> bool {
-        sym.0 < kw::KW_COUNT && self.0 & (1 << sym.0) != 0
+        sym.0 < Keyword::COUNT && self.0 & (1 << sym.0) != 0
     }
 }
 
@@ -205,7 +219,7 @@ mod tests {
     #[test]
     fn new_interner_contains_only_keywords() {
         let interner = Interner::new();
-        assert_eq!(interner.set.len(), kw::KW_COUNT as usize);
+        assert_eq!(interner.set.len(), Keyword::COUNT as usize);
     }
 
     #[test]

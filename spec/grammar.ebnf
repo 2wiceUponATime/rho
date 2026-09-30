@@ -15,20 +15,20 @@ statement ::=
 ## Declarations
 declaration ::=
   | variable_decl ";"
-  | fn_modifiers "function" Ident "(" params? ")" statement_block
+  | fn_modifiers "function" Ident "(" params? ")" ("->" type)? statement_block
   | "class" (Ident | "constructor") ("extends" type)? "{" class_member* "}"
   ;
 
 class_member ::=
-  | class_member_prefix Ident ("=" expr)? ";"
-  | class_member_prefix fn_modifiers Ident "(" params? ")" statement_block
+  | class_member_prefix Ident (":" type)? ("=" expr)? ";"
+  | class_member_prefix fn_modifiers Ident "(" params? ")" ("->" type)? statement_block
   ;
 
 class_member_prefix ::= ("private" | "protected")? "static"?;
 
 variable_decl ::=
-  | "let" pattern ("=" expr)?
-  | "const" pattern "=" expr
+  | "let" pattern (":" type)? ("=" expr)?
+  | "const" pattern (":" type)? "=" expr
   ;
 
 fn_modifiers ::= ("const" | "async")?;
@@ -36,8 +36,8 @@ fn_modifiers ::= ("const" | "async")?;
 params ::= list[param];
 
 param ::=
-  | pattern ("=" expr)?
-  | "..." pattern
+  | pattern (":" type)? ("=" expr)?
+  | "..." pattern (":" type)?
   ;
 
 ## Expressions (ambiguity resolved in precedence.md)
@@ -61,8 +61,8 @@ expr ::=
   | (Ident ":")? block_expr
 
   # Functions
-  | fn_modifiers "(" params ")" "=>" (expr | statement_block)
-  | fn_modifiers "function" "(" params? ")" statement_block
+  | fn_modifiers "(" params? ")" ("->" type)? "=>" (expr | statement_block)
+  | fn_modifiers "function" "(" params? ")" ("->" type)? statement_block
 
   # Literals and primaries
   | NoSubTemplate
@@ -87,13 +87,16 @@ block_expr ::=
   | "loop" block
   | "while" "(" expr ")" block
   | "for" "(" for_header ")" block
-  | "try" block ("catch" ("(" pattern ")")? block ("finally" block)? | "finally" block)
+  | "try" block (catch_block+ ("finally" block)? | "finally" block)
   ;
+
 
 for_header ::=
   | (variable_decl | assignment | expr)? ";" expr? ";" (assignment | expr)?
-  | pattern "in" expr
+  | pattern (":" type)? "in" expr
   ;
+
+catch_block ::= "catch" ("(" pattern (":" type)? ")")? block;
 
 block ::= "{" statement* expr? "}";
 statement_block ::= "{" statement* "}";
@@ -105,6 +108,7 @@ pattern ::=
   | literal_pattern
   | type? object_pattern
   | array_pattern
+  | "(" ((pattern ",")+ pattern?)? ")"
   | "(" union_pattern ")"
   ;
 
@@ -179,5 +183,5 @@ compound_assignment_op ::=
 
 ## Types (TODO)
 type ::=
-  |
+  | Ident
   ;

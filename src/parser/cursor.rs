@@ -23,10 +23,12 @@ impl<'a> Cursor<'a> {
         self.input_len - self.chars.as_str().len() as u32
     }
 
+    #[inline]
     pub fn first(&self) -> char {
         self.chars.clone().next().unwrap_or(EOF_CHAR)
     }
 
+    #[inline]
     pub fn second(&self) -> char {
         let mut iter = self.chars.clone();
         iter.next();
