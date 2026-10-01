@@ -16,12 +16,12 @@ statement ::=
 declaration ::=
   | variable_decl ";"
   | fn_modifiers "function" Ident "(" params? ")" ("->" type)? statement_block
-  | "class" (Ident | "constructor") ("extends" type)? "{" class_member* "}"
+  | "class" Ident ("extends" type)? "{" class_member* "}"
   ;
 
 class_member ::=
   | class_member_prefix Ident (":" type)? ("=" expr)? ";"
-  | class_member_prefix fn_modifiers Ident "(" params? ")" ("->" type)? statement_block
+  | class_member_prefix fn_modifiers (Ident | "constructor") "(" params? ")" ("->" type)? statement_block
   ;
 
 class_member_prefix ::= ("private" | "protected")? "static"?;
