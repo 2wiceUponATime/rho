@@ -474,10 +474,11 @@ impl<'psess, 'src> Lexer<'psess, 'src> {
 
     fn error(&self, start: u32, end: u32, message: &str) {
         let span = self.file_id.span(start, end);
-        self.session
-            .diagnostics
-            .borrow_mut()
-            .push(Diagnostic::new(Level::Error, span, message.into()));
+        self.session.diagnostics.borrow_mut().push(Diagnostic::new(
+            Level::Error,
+            span,
+            message.into(),
+        ));
     }
 }
 

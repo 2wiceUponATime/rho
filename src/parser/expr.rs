@@ -1,7 +1,6 @@
 use std::borrow::Cow;
 
 use super::*;
-use crate::interner::kw;
 
 macro_rules! binary_ops {
     ($($level:literal : $assoc:ident => {
@@ -120,12 +119,7 @@ impl Parser<'_> {
         }
     }
 
-    fn unescape(
-        &self,
-        raw: &str,
-        first: usize,
-        mut ctx: LiteralContext,
-    ) -> String {
+    fn unescape(&self, raw: &str, first: usize, mut ctx: LiteralContext) -> String {
         let mut out = String::with_capacity(raw.len());
         let mut rest = raw;
         let mut next = Some(first);
@@ -278,7 +272,7 @@ impl Parser<'_> {
             self.bump();
         }
         while !self.eat(CloseParen) {
-            args.push(Box::new(self.parse_expr()?));
+            args.push(self.parse_expr()?);
             if !self.eat(Comma) {
                 self.expect(CloseParen)?;
                 break;

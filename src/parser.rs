@@ -1,10 +1,11 @@
-pub mod ast;
 mod cursor;
 mod error;
 mod expr;
 mod lexer;
+mod pattern;
 mod stmt;
 mod token_cursor;
+mod ty;
 
 use error::*;
 use std::num::ParseIntError;
@@ -12,8 +13,9 @@ use std::num::ParseIntError;
 pub use lexer::*;
 
 use crate::{
-    interner::{KwSet, Symbol},
-    parser::{TokenKind::*, ast::*, token_cursor::TokenCursor},
+    ast::*,
+    interner::{KwSet, Symbol, kw},
+    parser::{TokenKind::*, token_cursor::TokenCursor},
     session::{Diagnostic, FileId, Level, ParseSession},
     span::Span,
 };
@@ -113,7 +115,7 @@ impl<'psess> Parser<'psess> {
     pub fn parse_program(&mut self) -> Program {
         let mut program = Program::default();
         while !self.cursor.is_eof() {
-            match self.parse_stmt() {
+            match self.parse_decl() {
                 Ok(stmt) => program.statements.push(stmt),
                 Err(err) => {
                     self.recover_to(&[Semi]);

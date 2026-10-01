@@ -1,7 +1,4 @@
-use crate::parser::{
-    Lexer, Token,
-    TokenKind::*,
-};
+use super::*;
 
 pub struct TokenCursor {
     tokens: Vec<Token>,

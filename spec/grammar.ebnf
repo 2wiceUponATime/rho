@@ -112,7 +112,7 @@ pattern ::=
   | "(" union_pattern ")"
   ;
 
-object_pattern ::= "{" list[Ident (":" pattern)? ("=" expr)?]? "}";
+object_pattern ::= "{" list[Ident (":" pattern)?]? "}";
 
 array_pattern ::= "[" list[pattern | "..." Ident]? "]";
 
@@ -143,7 +143,7 @@ assign_target ::=
   | "_"
   | place
   | "[" list[assign_target | "..." assign_target]? "]"
-  | "{" list[Ident (":" assign_target)? ("=" expr)?]? "}"
+  | "{" list[Ident (":" assign_target)?]? "}"
   | "(" (assign_target ",")+ assign_target? ")"
   ;
 

@@ -1,3 +1,4 @@
+pub mod ast;
 pub mod interner;
 pub mod parser;
 pub mod session;
