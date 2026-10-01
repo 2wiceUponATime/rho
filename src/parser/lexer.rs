@@ -169,7 +169,7 @@ impl TemplateState {
 
 pub struct Lexer<'psess, 'src> {
     pub session: &'psess ParseSession,
-    file_id: FileId,
+    pub file_id: FileId,
     src: &'src str,
     cursor: Cursor<'src>,
     template_stack: Vec<TemplateState>,
@@ -197,7 +197,7 @@ impl<'psess, 'src> Lexer<'psess, 'src> {
             self.emitted_eof = true;
         }
         if kind == Unknown {
-            self.error(start, end, "Unexpected character".into());
+            self.error(start, end, "unexpected character");
         }
         Token::new(self.file_id.span(start, end), kind)
     }
@@ -372,7 +372,7 @@ impl<'psess, 'src> Lexer<'psess, 'src> {
     fn ident(&mut self, start: u32) -> TokenKind {
         self.cursor.eat_while(is_id_continue);
         let value = &self.src[start as usize..self.cursor.pos() as usize];
-        Ident(self.session.interner.borrow_mut().intern(value))
+        Ident(self.session.interner.borrow_mut().intern_nfc(value))
     }
 
     fn number_literal(&mut self) -> TokenKind {
@@ -380,10 +380,10 @@ impl<'psess, 'src> Lexer<'psess, 'src> {
         if self.cursor.first() == '.' && self.cursor.second().is_ascii_digit() {
             self.cursor.bump();
             self.cursor.eat_while(|c| c.is_ascii_digit());
-            self.check_ident_after_literal("Unexpected identifier in float literal");
+            self.check_ident_after_literal("unexpected identifier in float literal");
             return FloatLiteral;
         }
-        self.check_ident_after_literal("Unexpected identifier in integer literal");
+        self.check_ident_after_literal("unexpected identifier in integer literal");
         IntLiteral
     }
 
@@ -396,7 +396,7 @@ impl<'psess, 'src> Lexer<'psess, 'src> {
         loop {
             self.cursor.eat_until3(b'`', b'\\', b'$');
             if self.cursor.is_eof() {
-                self.error(start, start + 1, "Unterminated template literal".into());
+                self.error(start, start + 1, "unterminated template literal");
                 return end_kind;
             }
             let next = self.cursor.bump().unwrap();
@@ -420,9 +420,9 @@ impl<'psess, 'src> Lexer<'psess, 'src> {
         loop {
             self.cursor.eat_until2(quote, b'\\');
             if self.cursor.is_eof() {
-                self.error(start, start + 1, "Unterminated string literal".into());
+                self.error(start, start + 1, "unterminated string literal");
             }
-            if self.cursor.bump().unwrap() == '\\' {
+            if self.cursor.bump() == Some('\\') {
                 self.cursor.bump();
                 continue;
             }
@@ -435,7 +435,7 @@ impl<'psess, 'src> Lexer<'psess, 'src> {
         let c = self.cursor.first();
         if is_id_start(c) {
             let pos = self.cursor.pos();
-            self.error(pos, pos + c.len_utf8() as u32, message.into());
+            self.error(pos, pos + c.len_utf8() as u32, message);
         }
     }
 
@@ -468,16 +468,16 @@ impl<'psess, 'src> Lexer<'psess, 'src> {
             }
         }
         self.cursor.skip_to_end();
-        self.error(start, start + 2, "Unterminated block comment".into());
+        self.error(start, start + 2, "unterminated block comment");
         BlockComment
     }
 
-    fn error(&self, start: u32, end: u32, message: String) {
+    fn error(&self, start: u32, end: u32, message: &str) {
         let span = self.file_id.span(start, end);
         self.session
             .diagnostics
             .borrow_mut()
-            .push(Diagnostic::new(Level::Error, span, message));
+            .push(Diagnostic::new(Level::Error, span, message.into()));
     }
 }
 
@@ -501,10 +501,10 @@ mod tests {
     use super::*;
     use crate::session::{FilePath, ParseSession, SourceFile};
 
-    const UNEXPECTED_CHAR: &str = "Unexpected character";
-    const IDENT_IN_INT: &str = "Unexpected identifier in integer literal";
-    const IDENT_IN_FLOAT: &str = "Unexpected identifier in float literal";
-    const UNTERMINATED_BLOCK: &str = "Unterminated block comment";
+    const UNEXPECTED_CHAR: &str = "unexpected character";
+    const IDENT_IN_INT: &str = "unexpected identifier in integer literal";
+    const IDENT_IN_FLOAT: &str = "unexpected identifier in float literal";
+    const UNTERMINATED_BLOCK: &str = "unterminated block comment";
 
     fn lex(src: &str) -> (ParseSession, Vec<Token>) {
         let mut session = ParseSession::new();

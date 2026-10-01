@@ -8,7 +8,7 @@ use rho::{
 fn main() {
     let args: Vec<String> = env::args().collect();
     let Some(path) = args.get(1) else {
-        eprintln!("Usage: cargo run [file]");
+        eprintln!("Usage: rho [file]");
         return;
     };
     let mut session = ParseSession::new();

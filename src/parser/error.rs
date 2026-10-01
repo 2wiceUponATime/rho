@@ -35,7 +35,7 @@ impl ParseError {
     pub fn to_diag(&self, session: &ParseSession) -> Diagnostic {
         let message = match &self.kind {
             ParseErrorKind::Unexpected { expected, found } => format!(
-                "Expected {}{} but found {}",
+                "expected {}{} but found {}",
                 if expected.len() > 1 { "one of: " } else { "" },
                 expected
                     .iter()

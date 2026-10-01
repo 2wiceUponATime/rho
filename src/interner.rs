@@ -92,6 +92,11 @@ impl Interner {
     }
 
     pub fn intern(&mut self, s: &str) -> Symbol {
+        let (i, _) = self.set.insert_full(s.into());
+        Symbol(i as u32)
+    }
+
+    pub fn intern_nfc(&mut self, s: &str) -> Symbol {
         let s = if s.is_ascii()
             || unicode_normalization::is_nfc_quick(s.chars()) == IsNormalized::Yes
         {
@@ -102,8 +107,7 @@ impl Interner {
         if let Some(i) = self.set.get_index_of(s) {
             return Symbol(i as u32);
         }
-        let (i, _) = self.set.insert_full(s.into());
-        Symbol(i as u32)
+        self.intern(s)
     }
 
     pub fn get(&self, symbol: Symbol) -> &str {
@@ -155,19 +159,19 @@ mod tests {
     #[test]
     fn same_string_interns_to_same_symbol() {
         let mut interner = Interner::new();
-        assert_eq!(interner.intern("foo"), interner.intern("foo"));
+        assert_eq!(interner.intern_nfc("foo"), interner.intern_nfc("foo"));
     }
 
     #[test]
     fn different_strings_intern_to_different_symbols() {
         let mut interner = Interner::new();
-        assert_ne!(interner.intern("foo"), interner.intern("bar"));
+        assert_ne!(interner.intern_nfc("foo"), interner.intern_nfc("bar"));
     }
 
     #[test]
     fn symbol_resolves_to_original_string() {
         let mut interner = Interner::new();
-        let symbol = interner.intern("foo");
+        let symbol = interner.intern_nfc("foo");
         assert_eq!(interner.get(symbol), "foo");
     }
 
@@ -176,8 +180,8 @@ mod tests {
         let nfc = "\u{e9}";
         let not_nfc = "e\u{301}";
         let mut interner = Interner::new();
-        let sym_nfc = interner.intern(nfc);
-        let sym_not_nfc = interner.intern(not_nfc);
+        let sym_nfc = interner.intern_nfc(nfc);
+        let sym_not_nfc = interner.intern_nfc(not_nfc);
         assert_eq!(sym_nfc, sym_not_nfc);
         assert_eq!(interner.get(sym_nfc), nfc);
     }
@@ -185,35 +189,35 @@ mod tests {
     #[test]
     fn already_nfc_non_ascii() {
         let mut interner = Interner::new();
-        let symbol = interner.intern("日本語");
+        let symbol = interner.intern_nfc("日本語");
         assert_eq!(interner.get(symbol), "日本語");
-        assert_eq!(interner.intern("日本語"), symbol);
+        assert_eq!(interner.intern_nfc("日本語"), symbol);
     }
 
     #[test]
     fn non_nfc_resolves_to_nfc() {
         let mut interner = Interner::new();
-        let symbol = interner.intern("e\u{301}");
+        let symbol = interner.intern_nfc("e\u{301}");
         assert_eq!(interner.get(symbol), "\u{e9}");
     }
 
     #[test]
     fn symbols_stable_after_more_interning() {
         let mut interner = Interner::new();
-        let foo = interner.intern("foo");
+        let foo = interner.intern_nfc("foo");
         for i in 0..100 {
-            interner.intern(&format!("s{i}"));
+            interner.intern_nfc(&format!("s{i}"));
         }
-        assert_eq!(interner.intern("foo"), foo);
+        assert_eq!(interner.intern_nfc("foo"), foo);
         assert_eq!(interner.get(foo), "foo");
     }
 
     #[test]
     fn empty_string() {
         let mut interner = Interner::new();
-        let symbol = interner.intern("");
+        let symbol = interner.intern_nfc("");
         assert_eq!(interner.get(symbol), "");
-        assert_ne!(interner.intern("a"), symbol);
+        assert_ne!(interner.intern_nfc("a"), symbol);
     }
 
     #[test]
@@ -227,7 +231,7 @@ mod tests {
         let mut interner = Interner::new();
         for (i, &(sym, s)) in kw::KEYWORDS.iter().enumerate() {
             assert_eq!(sym.0, i as u32, "`{s}` has the wrong symbol ID");
-            assert_eq!(interner.intern(s), sym, "interning `{s}`");
+            assert_eq!(interner.intern_nfc(s), sym, "interning `{s}`");
             assert_eq!(interner.get(sym), s, "resolving `{s}`");
         }
     }

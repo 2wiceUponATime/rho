@@ -24,7 +24,7 @@ Operators (highest to lowest precedence):
       <td>Optional chaining index <br/> <code>x?.[y]</code></td>
     </tr>
     <tr>
-      <td>Non-nullish assertion <br/> <code>x!</code></td>
+      <td>Non-null assertion <br/> <code>x!</code></td>
     </tr>
     <tr>
       <td rowspan="2">N/A</td>
@@ -42,7 +42,7 @@ Operators (highest to lowest precedence):
       <td>Bitwise NOT <br/> <code>~x</code></td>
     </tr>
     <tr>
-      <td>Unary minus <br/> <code>-x</code></td>
+      <td>Unary negation <br/> <code>-x</code></td>
     </tr>
     <tr>
       <td><code>await x</code></td>

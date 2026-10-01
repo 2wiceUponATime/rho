@@ -99,11 +99,6 @@ impl Diagnostics {
             None => level,
         })
     }
-
-    pub fn clear(&mut self) {
-        self.diagnostics.clear();
-        self.max_level = None;
-    }
 }
 
 impl Deref for Diagnostics {
@@ -141,6 +136,10 @@ impl ParseSession {
 
     pub fn text(&self, span: Span) -> &str {
         &self.source(span.file_id).text[span.range()]
+    }
+
+    pub fn char(&self, file_id: FileId, index: u32) -> char {
+        self.source(file_id).text.as_bytes()[index as usize] as char
     }
 
     pub fn display_span(&self, span: Span) -> String {
@@ -289,8 +288,8 @@ mod tests {
     fn display_diag() {
         let mut session = ParseSession::new();
         let id = session.add_source(virtual_source("<test>", "foo\nbar"));
-        let diag = Diagnostic::new(Level::Error, Span::new(id, 4, 7), "Oops".into());
-        assert_eq!(session.display_diag(&diag), "Error: Oops at <test>:2:1");
+        let diag = Diagnostic::new(Level::Error, Span::new(id, 4, 7), "oops".into());
+        assert_eq!(session.display_diag(&diag), "Error: oops at <test>:2:1");
     }
 
     #[test]

@@ -60,6 +60,11 @@ impl<'a, 'f> Printer<'a, 'f> {
             }
             Expr::IntLiteral(value) => write!(self.f, "Literal({value})")?,
             Expr::FloatLiteral(value) => write!(self.f, "Literal({value})")?,
+            Expr::StringLiteral(sym) => {
+                let interner = self.session.interner.borrow();
+                let text = interner.get(*sym);
+                write!(self.f, "{:?}", text)?;
+            }
             Expr::Variable(sym) => write!(
                 self.f,
                 "Variable({})",
@@ -78,6 +83,66 @@ impl<'a, 'f> Printer<'a, 'f> {
                 write!(self.f, "Unary{op:?}(")?;
                 self.expr(node)?;
                 write!(self.f, ")")?;
+            }
+            Expr::Member {
+                object: lhs,
+                key,
+                optional,
+            } => {
+                self.indentation += 1;
+                write!(
+                    self.f,
+                    "Member{}(\n{}",
+                    if *optional { "Optional" } else { "" },
+                    self.indent()
+                )?;
+                self.expr(lhs)?;
+                write!(
+                    self.f,
+                    "\n{}{}",
+                    self.indent(),
+                    self.session.interner.borrow().get(**key)
+                )?;
+                self.indentation -= 1;
+                write!(self.f, "\n{})", self.indent())?;
+            }
+            Expr::Index {
+                object: lhs,
+                index: rhs,
+                optional,
+            } => {
+                self.indentation += 1;
+                write!(
+                    self.f,
+                    "Index{}(\n{}",
+                    if *optional { "Optional" } else { "" },
+                    self.indent()
+                )?;
+                self.expr(lhs)?;
+                write!(self.f, "\n{}", self.indent())?;
+                self.expr(rhs)?;
+                self.indentation -= 1;
+                write!(self.f, "\n{})", self.indent())?;
+            }
+            Expr::Call {
+                callee,
+                args,
+                optional,
+            } => {
+                self.indentation += 1;
+                write!(
+                    self.f,
+                    "Call{}(\n{}",
+                    if *optional { "Optional" } else { "" },
+                    self.indent()
+                )?;
+                self.expr(callee)?;
+                for arg in args {
+                    write!(self.f, "\n{}", self.indent())?;
+                    self.expr(arg)?;
+                }
+                self.indentation -= 1;
+                write!(self.f, "\n{})", self.indent())?;
             }
         }
         Ok(())
@@ -104,6 +169,7 @@ pub enum Expr {
     Group(Child<Self>),
     IntLiteral(i64),
     FloatLiteral(f64),
+    StringLiteral(Symbol),
     Variable(Symbol),
     Binary {
         lhs: Child<Self>,
@@ -111,6 +177,21 @@ pub enum Expr {
         op: BinaryOp,
     },
     Unary(Child<Self>, UnaryOp),
+    Member {
+        object: Child<Self>,
+        key: AstNode<Symbol>,
+        optional: bool,
+    },
+    Index {
+        object: Child<Self>,
+        index: Child<Self>,
+        optional: bool,
+    },
+    Call {
+        callee: Child<Self>,
+        args: Vec<Child<Self>>,
+        optional: bool,
+    },
 }
 
 impl Expr {
@@ -167,7 +248,11 @@ pub enum BinaryOp {
 
 #[derive(Debug)]
 pub enum UnaryOp {
-    Minus,
+    LogicNot,
+    BitNot,
+    Negate,
+    Await,
+    NotNull,
 }
 
 pub struct AstNode<T> {

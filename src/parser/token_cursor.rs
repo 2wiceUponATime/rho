@@ -1,4 +1,7 @@
-use crate::parser::{Lexer, Token, TokenKind::*};
+use crate::parser::{
+    Lexer, Token,
+    TokenKind::*,
+};
 
 pub struct TokenCursor {
     tokens: Vec<Token>,
@@ -15,6 +18,11 @@ impl TokenCursor {
 
     pub fn first(&self) -> Token {
         self.tokens[self.position as usize]
+    }
+
+    pub fn second(&self) -> Token {
+        let i = (self.position as usize + 1).min(self.tokens.len() - 1);
+        self.tokens[i]
     }
 
     pub fn prev(&self) -> Token {

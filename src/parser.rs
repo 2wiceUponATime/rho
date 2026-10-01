@@ -14,12 +14,13 @@ pub use lexer::*;
 use crate::{
     interner::{KwSet, Symbol},
     parser::{TokenKind::*, ast::*, token_cursor::TokenCursor},
-    session::{Diagnostic, Level, ParseSession},
+    session::{Diagnostic, FileId, Level, ParseSession},
     span::Span,
 };
 
 pub struct Parser<'psess> {
     session: &'psess ParseSession,
+    file_id: FileId,
     cursor: TokenCursor,
     expected: Vec<ExpectKind>,
 }
@@ -28,6 +29,7 @@ impl<'psess> Parser<'psess> {
     pub fn new(lexer: Lexer<'psess, '_>) -> Self {
         Self {
             session: lexer.session,
+            file_id: lexer.file_id,
             cursor: lexer.into(),
             expected: vec![],
         }
@@ -40,6 +42,10 @@ impl<'psess> Parser<'psess> {
 
     fn emit(&self, diag: Diagnostic) {
         self.session.diagnostics.borrow_mut().push(diag);
+    }
+
+    fn span(&self, start: u32, end: u32) -> Span {
+        self.file_id.span(start, end)
     }
 
     fn check(&self, kind: TokenKind) -> bool {
@@ -77,6 +83,20 @@ impl<'psess> Parser<'psess> {
         } else {
             self.expected.push(ExpectKind::TokenKind(kind));
             self.unexpected(token.span)
+        }
+    }
+
+    fn expect_ident(&mut self, exclude: KwSet) -> PResult<AstNode<Symbol>> {
+        let token = self.cursor.first();
+        match token.kind {
+            Ident(sym) if !exclude.contains(sym) => {
+                self.bump();
+                Ok(AstNode::new(sym, token.span))
+            }
+            _ => {
+                self.expected.push(ExpectKind::Ident);
+                self.unexpected(token.span)
+            }
         }
     }
 
