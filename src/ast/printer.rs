@@ -174,8 +174,8 @@ impl<'a, 'f> Printer<'a, 'f> {
                 }
                 write!(self.f, ")")
             }
-            Expr::IntLiteral(value) => write!(self.f, "Literal{value})"),
-            Expr::FloatLiteral(value) => write!(self.f, "Literal({})", Self::format_float(*value)),
+            Expr::IntLiteral(value) => write!(self.f, "{value}"),
+            Expr::FloatLiteral(value) => write!(self.f, "{}", Self::format_float(*value)),
             Expr::StringLiteral(sym) => {
                 let interner = self.session.interner.borrow();
                 let text = interner.get(*sym);
