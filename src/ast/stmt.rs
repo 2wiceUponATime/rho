@@ -7,6 +7,11 @@ pub enum FunctionKind {
     Async,
 }
 
+pub enum VariableKind {
+    Let(Option<Child<Expr>>),
+    Const(Child<Expr>),
+}
+
 pub enum Stmt {
     Expr(Child<Expr>),
     Return(Option<Child<Expr>>),
@@ -14,8 +19,16 @@ pub enum Stmt {
         name: Symbol,
         kind: FunctionKind,
         params: Vec<AstNode<Pattern>>,
-        return_type: Option<AstNode<Type>>,
+        return_type: Option<Child<Type>>,
         body: Vec<AstNode<Self>>,
+    },
+    Variable {
+        pattern: AstNode<Pattern>,
+        kind: VariableKind,
+    },
+    Assign {
+        target: AssignTarget,
+        value: Child<Expr>,
     },
 }
 
@@ -24,3 +37,19 @@ impl Stmt {
         fmt::from_fn(|f| Printer::new(f, session).stmt(self))
     }
 }
+
+pub enum AssignTarget {
+    Variable(Symbol),
+    Member {
+        object: Child<Expr>,
+        key: AstNode<Symbol>,
+    },
+    Index {
+        object: Child<Expr>,
+        index: Child<Expr>,
+    },
+    Error,
+}
+
+assert_size!(Stmt, 64);
+assert_size!(AssignTarget, 32);

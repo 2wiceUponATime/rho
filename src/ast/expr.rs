@@ -2,6 +2,7 @@ use super::*;
 
 pub enum Expr {
     Group(Child<Self>),
+    Tuple(Vec<AstNode<Self>>),
     IntLiteral(i64),
     FloatLiteral(f64),
     StringLiteral(Symbol),
@@ -94,3 +95,5 @@ pub enum UnaryOp {
     /// `x!`
     NotNull,
 }
+
+assert_size!(Expr, 40);

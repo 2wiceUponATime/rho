@@ -13,7 +13,7 @@ use printer::Printer;
 
 use std::{fmt, ops::Deref};
 
-use crate::{interner::Symbol, session::ParseSession, span::Span};
+use crate::{assert_size, interner::Symbol, session::ParseSession, span::Span};
 
 type Child<T> = Box<AstNode<T>>;
 
@@ -29,13 +29,17 @@ impl Program {
 }
 
 pub struct AstNode<T> {
-    pub node: T,
+    pub value: T,
     pub span: Span,
 }
 
 impl<T> AstNode<T> {
-    pub fn new(node: T, span: Span) -> Self {
-        Self { node, span }
+    pub fn new(value: T, span: Span) -> Self {
+        Self { value, span }
+    }
+
+    pub fn with_value<U>(&self, value: U) -> AstNode<U> {
+        AstNode::new(value, self.span)
     }
 }
 
@@ -43,6 +47,6 @@ impl<T> Deref for AstNode<T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
-        &self.node
+        &self.value
     }
 }

@@ -118,8 +118,15 @@ impl Interner {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Symbol(u32);
 
+pub type KwBits = u64;
+
+const _: () = {
+    assert!(Keyword::COUNT < KwBits::BITS, "not enough bits in KwBits; use a wider integer");
+    assert!(Keyword::COUNT * 2 > KwBits::BITS || KwBits::BITS == 8, "KwBits could be a narrower integer")
+};
+
 #[derive(Clone, Copy)]
-pub struct KwSet(u64);
+pub struct KwSet(KwBits);
 
 impl KwSet {
     pub const EMPTY: Self = Self(0);

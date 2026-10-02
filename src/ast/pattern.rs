@@ -9,3 +9,5 @@ impl Pattern {
         fmt::from_fn(|f| Printer::new(f, session).pattern(self))
     }
 }
+
+assert_size!(Pattern, 4);

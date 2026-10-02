@@ -76,6 +76,67 @@ impl<'a, 'f> Printer<'a, 'f> {
                 self.indentation -= 1;
                 write!(self.f, "\n{})", self.indent())
             }
+            Stmt::Variable { pattern, kind } => {
+                let (kind, init) = match kind {
+                    VariableKind::Let(init) => ("Let", init.as_ref()),
+                    VariableKind::Const(init) => ("Const", Some(init)),
+                };
+                self.indentation += 1;
+                write!(self.f, "{}(\n{}", kind, self.indent())?;
+                self.pattern(pattern)?;
+                if let Some(expr) = init {
+                    write!(self.f, "\n{}", self.indent())?;
+                    self.expr(expr)?;
+                }
+                self.indentation -= 1;
+                write!(self.f, "\n{})", self.indent())
+            }
+            Stmt::Assign { target, value } => {
+                self.indentation += 1;
+                write!(self.f, "Assign(\n{}", self.indent())?;
+                self.assign_target(target)?;
+                write!(self.f, "\n{}", self.indent())?;
+                self.expr(value)?;
+                self.indentation -= 1;
+                write!(self.f, "\n{})", self.indent())
+            },
+        }
+    }
+
+    pub fn assign_target(&mut self, assign_target: &AssignTarget) -> fmt::Result {
+        match assign_target {
+            AssignTarget::Variable(sym) => write!(self.f, "{}", self.session.interner.borrow().get(*sym)),
+            AssignTarget::Member { object, key } => {
+                self.indentation += 1;
+                write!(
+                    self.f,
+                    "Member(\n{}",
+                    self.indent()
+                )?;
+                self.expr(object)?;
+                write!(
+                    self.f,
+                    "\n{}{}",
+                    self.indent(),
+                    self.session.interner.borrow().get(key.value)
+                )?;
+                self.indentation -= 1;
+                write!(self.f, "\n{})", self.indent())
+            },
+            AssignTarget::Index { object, index } => {
+                self.indentation += 1;
+                write!(
+                    self.f,
+                    "Index(\n{}",
+                    self.indent()
+                )?;
+                self.expr(object)?;
+                write!(self.f, "\n{}", self.indent())?;
+                self.expr(index)?;
+                self.indentation -= 1;
+                write!(self.f, "\n{})", self.indent())
+            },
+            AssignTarget::Error => write!(self.f, "Error"),
         }
     }
 
@@ -84,6 +145,19 @@ impl<'a, 'f> Printer<'a, 'f> {
             Expr::Group(node) => {
                 write!(self.f, "Group(")?;
                 self.expr(node)?;
+                write!(self.f, ")")
+            }
+            Expr::Tuple(items) => {
+                write!(self.f, "Tuple(")?;
+                self.indentation += 1;
+                for item in items {
+                    write!(self.f, "\n{}", self.indent())?;
+                    self.expr(item)?;
+                }
+                self.indentation -= 1;
+                if !items.is_empty() {
+                    write!(self.f, "\n{}", self.indent())?;
+                }
                 write!(self.f, ")")
             }
             Expr::IntLiteral(value) => write!(self.f, "Literal({value})"),
@@ -113,7 +187,7 @@ impl<'a, 'f> Printer<'a, 'f> {
                 write!(self.f, ")")
             }
             Expr::Member {
-                object: lhs,
+                object,
                 key,
                 optional,
             } => {
@@ -124,19 +198,19 @@ impl<'a, 'f> Printer<'a, 'f> {
                     if *optional { "Optional" } else { "" },
                     self.indent()
                 )?;
-                self.expr(lhs)?;
+                self.expr(object)?;
                 write!(
                     self.f,
                     "\n{}{}",
                     self.indent(),
-                    self.session.interner.borrow().get(**key)
+                    self.session.interner.borrow().get(key.value)
                 )?;
                 self.indentation -= 1;
                 write!(self.f, "\n{})", self.indent())
             }
             Expr::Index {
-                object: lhs,
-                index: rhs,
+                object,
+                index,
                 optional,
             } => {
                 self.indentation += 1;
@@ -146,9 +220,9 @@ impl<'a, 'f> Printer<'a, 'f> {
                     if *optional { "Optional" } else { "" },
                     self.indent()
                 )?;
-                self.expr(lhs)?;
+                self.expr(object)?;
                 write!(self.f, "\n{}", self.indent())?;
-                self.expr(rhs)?;
+                self.expr(index)?;
                 self.indentation -= 1;
                 write!(self.f, "\n{})", self.indent())
             }

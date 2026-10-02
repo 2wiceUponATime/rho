@@ -1,6 +1,30 @@
 use super::*;
 
 impl Parser<'_> {
+    fn expr_to_assign_target(&mut self, expr: AstNode<Expr>) -> AssignTarget {
+        match expr.value {
+            Expr::Variable(sym) => AssignTarget::Variable(sym),
+            Expr::Member {
+                object,
+                key,
+                optional: false,
+            } => AssignTarget::Member { object, key },
+            Expr::Index {
+                object,
+                index,
+                optional: false,
+            } => AssignTarget::Index { object, index },
+            _ => {
+                self.emit(Diagnostic::new(
+                    Level::Error,
+                    expr.span,
+                    "Only member and index expressions are allowed in assignment".into(),
+                ));
+                AssignTarget::Error
+            }
+        }
+    }
+
     fn parse_function_decl(&mut self, kind: FunctionKind, start: Span) -> PResult<AstNode<Stmt>> {
         let name = self.expect_ident(KwSet::STRICT)?;
         self.expect(OpenParen)?;
@@ -13,7 +37,7 @@ impl Parser<'_> {
             }
         }
         let return_type = if self.eat(MinusGt) {
-            Some(self.parse_type()?)
+            Some(Box::new(self.parse_type()?))
         } else {
             None
         };
@@ -24,6 +48,38 @@ impl Parser<'_> {
                 params,
                 return_type,
                 body: self.parse_block()?,
+            },
+            start.to(self.cursor.prev().span),
+        ))
+    }
+
+    fn parse_let(&mut self) -> PResult<AstNode<Stmt>> {
+        let start = self.cursor.prev().span;
+        let pattern = self.parse_pattern()?;
+        let mut init = None;
+        if self.eat(Eq) {
+            init = Some(Box::new(self.parse_expr()?));
+        }
+        self.expect(Semi)?;
+        Ok(AstNode::new(
+            Stmt::Variable {
+                pattern,
+                kind: VariableKind::Let(init),
+            },
+            start.to(self.cursor.prev().span),
+        ))
+    }
+
+    fn parse_const(&mut self) -> PResult<AstNode<Stmt>> {
+        let start = self.cursor.prev().span;
+        let pattern = self.parse_pattern()?;
+        self.expect(Eq)?;
+        let init = Box::new(self.parse_expr()?);
+        self.expect(Semi)?;
+        Ok(AstNode::new(
+            Stmt::Variable {
+                pattern,
+                kind: VariableKind::Const(init),
             },
             start.to(self.cursor.prev().span),
         ))
@@ -46,11 +102,14 @@ impl Parser<'_> {
             if self.eat(Ident(kw::Function)) {
                 return self.parse_function_decl(FunctionKind::Const, first.span);
             }
+            return self.parse_const();
         } else if self.eat(Ident(kw::Async)) {
             let first = self.cursor.prev();
             if self.eat(Ident(kw::Function)) {
                 return self.parse_function_decl(FunctionKind::Async, first.span);
             }
+        } else if self.eat(Ident(kw::Let)) {
+            return self.parse_let();
         }
         self.unexpected(self.cursor.first().span)
     }
@@ -58,7 +117,7 @@ impl Parser<'_> {
     fn parse_stmt(&mut self) -> PResult<AstNode<Stmt>> {
         if matches!(
             self.cursor.first().kind,
-            Ident(kw::Async) | Ident(kw::Const) | Ident(kw::Function)
+            Ident(kw::Async | kw::Const | kw::Function | kw::Let)
         ) {
             return self.parse_decl();
         }
@@ -78,6 +137,19 @@ impl Parser<'_> {
             ))
         } else {
             let expr = self.parse_expr()?;
+            if self.eat(Eq) {
+                let start = expr.span;
+                let target = self.expr_to_assign_target(expr);
+                let value = self.parse_expr()?.into();
+                self.expect(Semi)?;
+                return Ok(AstNode::new(
+                    Stmt::Assign {
+                        target,
+                        value,
+                    },
+                    start.to(self.cursor.prev().span),
+                ));
+            }
             self.expect(Semi)?;
             let span = expr.span.to(self.cursor.prev().span);
             Ok(AstNode::new(Stmt::Expr(expr.into()), span))

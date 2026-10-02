@@ -143,6 +143,21 @@ impl Parser<'_> {
         }
     }
 
+    fn parse_tuple(&mut self, first: AstNode<Expr>, start: Span) -> PResult<AstNode<Expr>> {
+        let mut items = vec![first];
+        while !self.eat(CloseParen) {
+            items.push(self.parse_expr()?);
+            if !self.eat(Comma) {
+                self.expect(CloseParen)?;
+                break;
+            }
+        }
+        Ok(AstNode::new(
+            Expr::Tuple(items),
+            start.to(self.cursor.prev().span),
+        ))
+    }
+
     fn parse_primary_expr(&mut self) -> PResult<AstNode<Expr>> {
         if self.eat(IntLiteral) {
             let span = self.cursor.prev().span;
@@ -183,7 +198,16 @@ impl Parser<'_> {
             Ok(AstNode::new(Expr::Variable(sym), self.cursor.prev().span))
         } else if self.eat(OpenParen) {
             let start = self.cursor.prev().span;
+            if self.eat(CloseParen) {
+                return Ok(AstNode::new(
+                    Expr::Tuple(vec![]),
+                    start.to(self.cursor.prev().span),
+                ));
+            }
             let expr = self.parse_expr()?;
+            if self.eat(Comma) {
+                return self.parse_tuple(expr, start);
+            }
             let end = self.expect(CloseParen)?.span;
             let span = start.to(end);
             Ok(AstNode::new(Expr::Group(expr.into()), span))
