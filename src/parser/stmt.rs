@@ -55,7 +55,7 @@ impl Parser<'_> {
             }
         }
         let return_type = if self.eat(MinusGt) {
-            Some(Box::new(self.parse_type()?))
+            Some(Box::new(self.parse_ty()?))
         } else {
             None
         };
@@ -75,6 +75,10 @@ impl Parser<'_> {
         let start = self.cursor.prev().span;
         let pattern = self.parse_pattern()?;
         let mut init = None;
+        let mut ty = None;
+        if self.eat(Colon) {
+            ty = Some(self.parse_ty()?);
+        }
         if self.eat(Eq) {
             init = Some(Box::new(self.parse_expr()?));
         }
@@ -83,6 +87,7 @@ impl Parser<'_> {
             Stmt::Variable {
                 pattern,
                 kind: VariableKind::Let(init),
+                ty,
             },
             start.to(self.cursor.prev().span),
         ))
@@ -91,6 +96,10 @@ impl Parser<'_> {
     fn parse_const(&mut self) -> PResult<AstNode<Stmt>> {
         let start = self.cursor.prev().span;
         let pattern = self.parse_pattern()?;
+        let mut ty = None;
+        if self.eat(Colon) {
+            ty = Some(self.parse_ty()?);
+        }
         self.expect(Eq)?;
         let init = Box::new(self.parse_expr()?);
         self.expect(Semi)?;
@@ -98,6 +107,7 @@ impl Parser<'_> {
             Stmt::Variable {
                 pattern,
                 kind: VariableKind::Const(init),
+                ty,
             },
             start.to(self.cursor.prev().span),
         ))

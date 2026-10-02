@@ -20,6 +20,20 @@ impl<'a, 'f> Printer<'a, 'f> {
         fmt::from_fn(move |f| write!(f, "{:width$}", "", width = width))
     }
 
+    fn format_float(f: f64) -> String {
+        let s = f.to_string();
+
+        if s.contains('.') {
+            return s;
+        }
+
+        if let Some((mantissa, exponent)) = s.split_once(['e', 'E']) {
+            return format!("{mantissa}.0e{exponent}");
+        }
+
+        format!("{s}.0")
+    }
+
     pub fn program(&mut self, program: &Program) -> fmt::Result {
         let last = program.statements.len().saturating_sub(1);
         for (i, stmt) in program.statements.iter().enumerate() {
@@ -76,7 +90,7 @@ impl<'a, 'f> Printer<'a, 'f> {
                 self.indentation -= 1;
                 write!(self.f, "\n{})", self.indent())
             }
-            Stmt::Variable { pattern, kind } => {
+            Stmt::Variable { pattern, kind, ty } => {
                 let (kind, init) = match kind {
                     VariableKind::Let(init) => ("Let", init.as_ref()),
                     VariableKind::Const(init) => ("Const", Some(init)),
@@ -87,6 +101,11 @@ impl<'a, 'f> Printer<'a, 'f> {
                 if let Some(expr) = init {
                     write!(self.f, "\n{}", self.indent())?;
                     self.expr(expr)?;
+                }
+                if let Some(ty) = ty {
+                    write!(self.f, "\n{}Type(", self.indent())?;
+                    self.ty(ty)?;
+                    write!(self.f, ")")?;
                 }
                 self.indentation -= 1;
                 write!(self.f, "\n{})", self.indent())
@@ -155,8 +174,8 @@ impl<'a, 'f> Printer<'a, 'f> {
                 }
                 write!(self.f, ")")
             }
-            Expr::IntLiteral(value) => write!(self.f, "Literal({value})"),
-            Expr::FloatLiteral(value) => write!(self.f, "Literal({value})"),
+            Expr::IntLiteral(value) => write!(self.f, "Literal{value})"),
+            Expr::FloatLiteral(value) => write!(self.f, "Literal({})", Self::format_float(*value)),
             Expr::StringLiteral(sym) => {
                 let interner = self.session.interner.borrow();
                 let text = interner.get(*sym);

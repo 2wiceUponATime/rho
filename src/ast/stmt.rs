@@ -25,6 +25,7 @@ pub enum Stmt {
     Variable {
         pattern: AstNode<Pattern>,
         kind: VariableKind,
+        ty: Option<AstNode<Type>>,
     },
     Assign {
         target: AssignTarget,
