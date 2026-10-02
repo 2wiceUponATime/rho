@@ -32,7 +32,7 @@ impl ParseError {
         Self { kind, span }
     }
 
-    pub fn to_diag(&self, session: &ParseSession) -> Diagnostic {
+    pub fn to_diag(&self, session: &ParseSession, file_id: FileId) -> Diagnostic {
         let message = match &self.kind {
             ParseErrorKind::Unexpected { expected, found } => format!(
                 "expected {}{} but found {}",
@@ -45,7 +45,7 @@ impl ParseError {
                 found.describe(session)
             ),
         };
-        Diagnostic::new(Level::Error, self.span, message)
+        Diagnostic::new(Level::Error, file_id, self.span, message)
     }
 }
 

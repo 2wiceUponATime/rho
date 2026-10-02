@@ -46,10 +46,6 @@ impl<'psess> Parser<'psess> {
         self.session.diagnostics.borrow_mut().push(diag);
     }
 
-    fn span(&self, start: u32, end: u32) -> Span {
-        self.file_id.span(start, end)
-    }
-
     fn check(&self, kind: TokenKind) -> bool {
         self.cursor.first().kind == kind
     }
@@ -122,7 +118,7 @@ impl<'psess> Parser<'psess> {
                     self.session
                         .diagnostics
                         .borrow_mut()
-                        .push(err.to_diag(self.session));
+                        .push(err.to_diag(self.session, self.file_id));
                 }
             };
         }

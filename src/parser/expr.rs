@@ -111,7 +111,8 @@ impl Parser<'_> {
             c => {
                 self.emit(Diagnostic::new(
                     Level::Warning,
-                    self.span(ctx.start - 1, ctx.start + c.len_utf8() as u32),
+                    self.file_id,
+                    Span::new(ctx.start - 1, ctx.start + c.len_utf8() as u32),
                     format!("unknown escape: '\\{}'", c),
                 ));
                 (c, 1)
@@ -161,11 +162,12 @@ impl Parser<'_> {
     fn parse_primary_expr(&mut self) -> PResult<AstNode<Expr>> {
         if self.eat(IntLiteral) {
             let span = self.cursor.prev().span;
-            let text = self.session.text(span);
+            let text = self.session.text(self.file_id, span);
             Ok(AstNode::new(
                 Expr::IntLiteral(text.parse().unwrap_or_else(|e: ParseIntError| {
                     self.emit(Diagnostic::new(
                         Level::Error,
+                        self.file_id,
                         span,
                         format!("failed to parse integer: {e}"),
                     ));
@@ -175,14 +177,14 @@ impl Parser<'_> {
             ))
         } else if self.eat(FloatLiteral) {
             let span = self.cursor.prev().span;
-            let text = self.session.text(span);
+            let text = self.session.text(self.file_id, span);
             Ok(AstNode::new(
                 Expr::FloatLiteral(text.parse().unwrap()),
                 span,
             ))
         } else if self.eat(StringLiteral) {
             let span = self.cursor.prev().span;
-            let text = self.session.text(span);
+            let text = self.session.text(self.file_id, span);
             let lit_type = match text.as_bytes()[0] {
                 b'\'' => LiteralType::SingleQuote,
                 b'"' => LiteralType::DoubleQuote,
@@ -339,6 +341,7 @@ impl Parser<'_> {
                 if Self::binary_op(next.kind).is_some_and(|(_, next_prec)| next_prec == prec) {
                     self.emit(Diagnostic::new(
                         Level::Error,
+                        self.file_id,
                         next.span,
                         "non-associative operators cannot be chained; use parentheses".to_string(),
                     ));

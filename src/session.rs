@@ -5,12 +5,6 @@ use crate::{interner::Interner, span::Span};
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct FileId(pub u32);
 
-impl FileId {
-    pub fn span(&self, start: u32, end: u32) -> Span {
-        Span::new(*self, start, end)
-    }
-}
-
 pub enum FilePath {
     Real(PathBuf),
     Virtual(String),
@@ -66,14 +60,16 @@ pub enum Level {
 #[derive(Debug)]
 pub struct Diagnostic {
     pub level: Level,
+    pub file_id: FileId,
     pub span: Span,
     pub message: String,
 }
 
 impl Diagnostic {
-    pub fn new(level: Level, span: Span, message: String) -> Self {
+    pub fn new(level: Level, file_id: FileId, span: Span, message: String) -> Self {
         Self {
             level,
+            file_id,
             span,
             message,
         }
@@ -134,16 +130,16 @@ impl ParseSession {
         &self.source_files[id.0 as usize]
     }
 
-    pub fn text(&self, span: Span) -> &str {
-        &self.source(span.file_id).text[span.range()]
+    pub fn text(&self, file_id: FileId, span: Span) -> &str {
+        &self.source(file_id).text[span.range()]
     }
 
     pub fn char(&self, file_id: FileId, index: u32) -> char {
         self.source(file_id).text.as_bytes()[index as usize] as char
     }
 
-    pub fn display_span(&self, span: Span) -> String {
-        let source = self.source(span.file_id);
+    pub fn display_span(&self, file_id: FileId, span: Span) -> String {
+        let source = self.source(file_id);
         let file = match &source.path {
             FilePath::Real(path) => path.to_str().unwrap(),
             FilePath::Virtual(name) => name,
@@ -159,8 +155,8 @@ impl ParseSession {
         )
     }
 
-    pub fn display_span_start(&self, span: Span) -> String {
-        let source = self.source(span.file_id);
+    pub fn display_span_start(&self, file_id: FileId, span: Span) -> String {
+        let source = self.source(file_id);
         let file = match &source.path {
             FilePath::Real(path) => path.to_str().unwrap(),
             FilePath::Virtual(name) => name,
@@ -174,7 +170,7 @@ impl ParseSession {
             "{:?}: {} at {}",
             diag.level,
             diag.message,
-            self.display_span_start(diag.span)
+            self.display_span_start(diag.file_id, diag.span)
         )
     }
 }
@@ -190,7 +186,7 @@ mod tests {
     }
 
     fn dummy_diag(level: Level) -> Diagnostic {
-        Diagnostic::new(level, Span::dummy(), format!("{:?}", level))
+        Diagnostic::new(level, FileId(0), Span::dummy(), format!("{:?}", level))
     }
 
     #[test]
@@ -227,21 +223,21 @@ mod tests {
     fn display_span() {
         let mut session = ParseSession::new();
         let id = session.add_source(virtual_source("<test>", "foo bar"));
-        assert_eq!(session.display_span(Span::new(id, 0, 3)), "<test>:1:1-1:4");
+        assert_eq!(session.display_span(id, Span::new(0, 3)), "<test>:1:1-1:4");
     }
 
     #[test]
     fn display_span_to_end() {
         let mut session = ParseSession::new();
         let id = session.add_source(virtual_source("<test>", "foo bar"));
-        assert_eq!(session.display_span(Span::new(id, 0, 7)), "<test>:1:1-1:8");
+        assert_eq!(session.display_span(id, Span::new(0, 7)), "<test>:1:1-1:8");
     }
 
     #[test]
     fn display_span_multiline() {
         let mut session = ParseSession::new();
         let id = session.add_source(virtual_source("<test>", "foo\nbar"));
-        assert_eq!(session.display_span(Span::new(id, 0, 5)), "<test>:1:1-2:2");
+        assert_eq!(session.display_span(id, Span::new(0, 5)), "<test>:1:1-2:2");
     }
 
     #[test]
@@ -279,7 +275,7 @@ mod tests {
         let mut session = ParseSession::new();
         let id = session.add_source(virtual_source("<test>", "foo\nbar"));
         assert_eq!(
-            session.display_span_start(Span::new(id, 5, 7)),
+            session.display_span_start(id, Span::new(5, 7)),
             "<test>:2:2"
         );
     }
@@ -288,7 +284,7 @@ mod tests {
     fn display_diag() {
         let mut session = ParseSession::new();
         let id = session.add_source(virtual_source("<test>", "foo\nbar"));
-        let diag = Diagnostic::new(Level::Error, Span::new(id, 4, 7), "oops".to_owned());
+        let diag = Diagnostic::new(Level::Error, id, Span::new(4, 7), "oops".to_owned());
         assert_eq!(session.display_diag(&diag), "Error: oops at <test>:2:1");
     }
 
@@ -300,7 +296,7 @@ mod tests {
         assert_ne!(a, b);
         assert_eq!(session.source(a).text, "one");
         assert_eq!(session.source(b).text, "two");
-        assert_eq!(session.display_span(Span::new(b, 0, 3)), "b:1:1-1:4");
+        assert_eq!(session.display_span(b, Span::new(0, 3)), "b:1:1-1:4");
     }
 
     #[test]
@@ -331,7 +327,7 @@ mod tests {
         let id = session.add_source_file(file.path().to_path_buf()).unwrap();
         let path = file.path().to_str().unwrap();
         assert_eq!(
-            session.display_span(Span::new(id, 0, 3)),
+            session.display_span(id, Span::new(0, 3)),
             format!("{path}:1:1-1:4")
         );
     }

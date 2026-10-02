@@ -53,4 +53,4 @@ pub enum AssignTarget {
 }
 
 assert_size!(Stmt, 64);
-assert_size!(AssignTarget, 32);
+assert_size!(AssignTarget, 24);

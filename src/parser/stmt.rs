@@ -5,6 +5,7 @@ impl Parser<'_> {
         let diag = || {
             Diagnostic::new(
                 Level::Error,
+                self.file_id,
                 expr.span,
                 "Only member and index expressions are allowed in assignment".to_owned(),
             )
@@ -35,16 +36,6 @@ impl Parser<'_> {
                     AssignTarget::Error
                 }
             },
-            // Expr::Member {
-            //     object,
-            //     key,
-            //     optional: false,
-            // } => AssignTarget::Member { object, key },
-            // Expr::Index {
-            //     object,
-            //     index,
-            //     optional: false,
-            // } => AssignTarget::Index { object, index },
             _ => {
                 self.emit(diag());
                 AssignTarget::Error

@@ -1,5 +1,6 @@
 use super::cursor::Cursor;
 use crate::{
+    assert_size,
     interner::Symbol,
     session::{Diagnostic, FileId, Level, ParseSession},
     span::Span,
@@ -199,7 +200,7 @@ impl<'psess, 'src> Lexer<'psess, 'src> {
         if kind == Unknown {
             self.error(start, end, "unexpected character");
         }
-        Token::new(self.file_id.span(start, end), kind)
+        Token::new(Span::new(start, end), kind)
     }
 
     fn is_known_start(c: char) -> bool {
@@ -473,14 +474,17 @@ impl<'psess, 'src> Lexer<'psess, 'src> {
     }
 
     fn error(&self, start: u32, end: u32, message: &str) {
-        let span = self.file_id.span(start, end);
+        let span = Span::new(start, end);
         self.session.diagnostics.borrow_mut().push(Diagnostic::new(
             Level::Error,
+            self.file_id,
             span,
             message.to_owned(),
         ));
     }
 }
+
+assert_size!(Token, 16);
 
 impl<'psess, 'src> Iterator for Lexer<'psess, 'src> {
     type Item = Token;
@@ -863,7 +867,7 @@ identifier");
                     span.start,
                     span.end
                 );
-                session.display_span(span);
+                session.display_span(FileId(0), span);
             }
             for diag in diags.iter() {
                 session.display_diag(diag);
