@@ -136,7 +136,7 @@ impl TokenKind {
 
             _ => unreachable!(),
         }
-        .into()
+        .to_owned()
     }
 }
 
@@ -477,7 +477,7 @@ impl<'psess, 'src> Lexer<'psess, 'src> {
         self.session.diagnostics.borrow_mut().push(Diagnostic::new(
             Level::Error,
             span,
-            message.into(),
+            message.to_owned(),
         ));
     }
 }
@@ -510,8 +510,8 @@ mod tests {
     fn lex(src: &str) -> (ParseSession, Vec<Token>) {
         let mut session = ParseSession::new();
         let id = session.add_source(SourceFile::new(
-            FilePath::Virtual("<test>".into()),
-            src.into(),
+            FilePath::Virtual("<test>".to_owned()),
+            src.to_owned(),
         ));
         let lexer = Lexer::new(id, &session, &session.source(id).text);
         let tokens: Vec<Token> = lexer.into_iter().collect();
@@ -704,8 +704,8 @@ identifier");
     fn iterator_fused_after_eof() {
         let mut session = ParseSession::new();
         let id = session.add_source(SourceFile::new(
-            FilePath::Virtual("<test>".into()),
-            "x".into(),
+            FilePath::Virtual("<test>".to_owned()),
+            "x".to_owned(),
         ));
         let mut lexer = Lexer::new(id, &session, &session.source(id).text);
         assert_matches!(lexer.next().map(|t| t.kind), Some(Ident(_)));

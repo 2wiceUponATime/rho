@@ -99,20 +99,19 @@ impl<'a, 'f> Printer<'a, 'f> {
                 self.expr(value)?;
                 self.indentation -= 1;
                 write!(self.f, "\n{})", self.indent())
-            },
+            }
         }
     }
 
     pub fn assign_target(&mut self, assign_target: &AssignTarget) -> fmt::Result {
         match assign_target {
-            AssignTarget::Variable(sym) => write!(self.f, "{}", self.session.interner.borrow().get(*sym)),
+            AssignTarget::Variable(sym) => {
+                write!(self.f, "{}", self.session.interner.borrow().get(*sym))
+            }
+            AssignTarget::Wildcard => write!(self.f, "_"),
             AssignTarget::Member { object, key } => {
                 self.indentation += 1;
-                write!(
-                    self.f,
-                    "Member(\n{}",
-                    self.indent()
-                )?;
+                write!(self.f, "Member(\n{}", self.indent())?;
                 self.expr(object)?;
                 write!(
                     self.f,
@@ -122,20 +121,16 @@ impl<'a, 'f> Printer<'a, 'f> {
                 )?;
                 self.indentation -= 1;
                 write!(self.f, "\n{})", self.indent())
-            },
+            }
             AssignTarget::Index { object, index } => {
                 self.indentation += 1;
-                write!(
-                    self.f,
-                    "Index(\n{}",
-                    self.indent()
-                )?;
+                write!(self.f, "Index(\n{}", self.indent())?;
                 self.expr(object)?;
                 write!(self.f, "\n{}", self.indent())?;
                 self.expr(index)?;
                 self.indentation -= 1;
                 write!(self.f, "\n{})", self.indent())
-            },
+            }
             AssignTarget::Error => write!(self.f, "Error"),
         }
     }
@@ -186,66 +181,47 @@ impl<'a, 'f> Printer<'a, 'f> {
                 self.expr(node)?;
                 write!(self.f, ")")
             }
-            Expr::Member {
-                object,
-                key,
-                optional,
-            } => {
+            Expr::Chain { base, links } => {
                 self.indentation += 1;
-                write!(
-                    self.f,
-                    "Member{}(\n{}",
-                    if *optional { "Optional" } else { "" },
-                    self.indent()
-                )?;
-                self.expr(object)?;
-                write!(
-                    self.f,
-                    "\n{}{}",
-                    self.indent(),
-                    self.session.interner.borrow().get(key.value)
-                )?;
+                write!(self.f, "Chain(\n{}", self.indent())?;
+                self.expr(base)?;
+                for link in links {
+                    write!(self.f, "\n{}", self.indent())?;
+                    self.chain_link(link)?;
+                }
                 self.indentation -= 1;
                 write!(self.f, "\n{})", self.indent())
             }
-            Expr::Index {
-                object,
-                index,
-                optional,
-            } => {
-                self.indentation += 1;
-                write!(
-                    self.f,
-                    "Index{}(\n{}",
-                    if *optional { "Optional" } else { "" },
-                    self.indent()
-                )?;
-                self.expr(object)?;
-                write!(self.f, "\n{}", self.indent())?;
+        }
+    }
+
+    pub fn chain_link(&mut self, link: &ChainLink) -> fmt::Result {
+        match link {
+            ChainLink::Member { key, optional } => write!(
+                self.f,
+                "Member{}({})",
+                if *optional { "Optional" } else { "" },
+                self.session.interner.borrow().get(key.value),
+            ),
+            ChainLink::Index { index, optional } => {
+                write!(self.f, "Index{}(", if *optional { "Optional" } else { "" },)?;
                 self.expr(index)?;
-                self.indentation -= 1;
-                write!(self.f, "\n{})", self.indent())
+                write!(self.f, ")")
             }
-            Expr::Call {
-                callee,
-                args,
-                optional,
-            } => {
+            ChainLink::Call { args, optional } => {
+                write!(self.f, "Call{}(", if *optional { "Optional" } else { "" },)?;
                 self.indentation += 1;
-                write!(
-                    self.f,
-                    "Call{}(\n{}",
-                    if *optional { "Optional" } else { "" },
-                    self.indent()
-                )?;
-                self.expr(callee)?;
                 for arg in args {
                     write!(self.f, "\n{}", self.indent())?;
                     self.expr(arg)?;
                 }
                 self.indentation -= 1;
-                write!(self.f, "\n{})", self.indent())
+                if !args.is_empty() {
+                    write!(self.f, "\n{}", self.indent())?;
+                }
+                write!(self.f, ")")
             }
+            ChainLink::NotNull => write!(self.f, "NotNull"),
         }
     }
 
@@ -254,6 +230,7 @@ impl<'a, 'f> Printer<'a, 'f> {
             Pattern::Variable(sym) => {
                 write!(self.f, "{}", self.session.interner.borrow().get(*sym))
             }
+            Pattern::Wildcard => write!(self.f, "_"),
         }
     }
 

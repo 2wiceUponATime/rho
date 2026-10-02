@@ -144,8 +144,8 @@ impl ParseSession {
 
     pub fn display_span(&self, span: Span) -> String {
         let source = self.source(span.file_id);
-        let file: &String = match &source.path {
-            FilePath::Real(path) => &path.to_str().unwrap().into(),
+        let file = match &source.path {
+            FilePath::Real(path) => path.to_str().unwrap(),
             FilePath::Virtual(name) => name,
         };
         let (start_row, start_col) = source.to_pos(span.start);
@@ -161,8 +161,8 @@ impl ParseSession {
 
     pub fn display_span_start(&self, span: Span) -> String {
         let source = self.source(span.file_id);
-        let file: &String = match &source.path {
-            FilePath::Real(path) => &path.to_str().unwrap().into(),
+        let file = match &source.path {
+            FilePath::Real(path) => path.to_str().unwrap(),
             FilePath::Virtual(name) => name,
         };
         let (row, col) = source.to_pos(span.start);
@@ -186,7 +186,7 @@ mod tests {
     use super::*;
 
     fn virtual_source(name: &str, text: &str) -> SourceFile {
-        SourceFile::new(FilePath::Virtual(name.into()), text.into())
+        SourceFile::new(FilePath::Virtual(name.to_owned()), text.to_owned())
     }
 
     fn dummy_diag(level: Level) -> Diagnostic {
@@ -288,7 +288,7 @@ mod tests {
     fn display_diag() {
         let mut session = ParseSession::new();
         let id = session.add_source(virtual_source("<test>", "foo\nbar"));
-        let diag = Diagnostic::new(Level::Error, Span::new(id, 4, 7), "oops".into());
+        let diag = Diagnostic::new(Level::Error, Span::new(id, 4, 7), "oops".to_owned());
         assert_eq!(session.display_diag(&diag), "Error: oops at <test>:2:1");
     }
 

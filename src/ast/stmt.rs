@@ -40,6 +40,7 @@ impl Stmt {
 
 pub enum AssignTarget {
     Variable(Symbol),
+    Wildcard,
     Member {
         object: Child<Expr>,
         key: AstNode<Symbol>,

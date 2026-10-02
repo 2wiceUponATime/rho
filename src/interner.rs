@@ -121,8 +121,14 @@ pub struct Symbol(u32);
 pub type KwBits = u64;
 
 const _: () = {
-    assert!(Keyword::COUNT < KwBits::BITS, "not enough bits in KwBits; use a wider integer");
-    assert!(Keyword::COUNT * 2 > KwBits::BITS || KwBits::BITS == 8, "KwBits could be a narrower integer")
+    assert!(
+        Keyword::COUNT < KwBits::BITS,
+        "not enough bits in KwBits; use a wider integer"
+    );
+    assert!(
+        Keyword::COUNT * 2 > KwBits::BITS || KwBits::BITS == 8,
+        "KwBits could be a narrower integer"
+    );
 };
 
 #[derive(Clone, Copy)]
@@ -145,7 +151,15 @@ impl KwSet {
         if sym.0 >= Keyword::COUNT {
             *self
         } else {
-            Self(self.0 & (1 << sym.0))
+            Self(self.0 | (1 << sym.0))
+        }
+    }
+
+    pub const fn without(&self, sym: Symbol) -> Self {
+        if sym.0 >= Keyword::COUNT {
+            *self
+        } else {
+            Self(self.0 & !(1 << sym.0))
         }
     }
 

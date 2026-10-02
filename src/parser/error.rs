@@ -10,7 +10,7 @@ impl ExpectKind {
     pub fn describe(self, session: &ParseSession) -> String {
         match self {
             Self::TokenKind(kind) => kind.describe(session),
-            Self::Ident => "identifier".into(),
+            Self::Ident => "identifier".to_owned(),
         }
     }
 }

@@ -1,4 +1,4 @@
-use std::{env, process};
+use std::{env, path::PathBuf, process};
 
 use rho::{
     parser::{Lexer, Parser},
@@ -12,7 +12,7 @@ fn main() {
         return;
     };
     let mut session = ParseSession::new();
-    let id = session.add_source_file(path.into()).unwrap();
+    let id = session.add_source_file(PathBuf::from(path)).unwrap();
     let lexer = Lexer::new(id, &session, &session.source(id).text);
     let mut parser = Parser::new(lexer);
     println!("{}", parser.parse_program().display(&session));

@@ -2,24 +2,51 @@ use super::*;
 
 impl Parser<'_> {
     fn expr_to_assign_target(&mut self, expr: AstNode<Expr>) -> AssignTarget {
+        let diag = || {
+            Diagnostic::new(
+                Level::Error,
+                expr.span,
+                "Only member and index expressions are allowed in assignment".to_owned(),
+            )
+        };
+
         match expr.value {
-            Expr::Variable(sym) => AssignTarget::Variable(sym),
-            Expr::Member {
-                object,
-                key,
-                optional: false,
-            } => AssignTarget::Member { object, key },
-            Expr::Index {
-                object,
-                index,
-                optional: false,
-            } => AssignTarget::Index { object, index },
+            Expr::Variable(sym) => match sym {
+                kw::Underscore => AssignTarget::Wildcard,
+                _ => AssignTarget::Variable(sym),
+            },
+            Expr::Chain { base, mut links } => match links.pop().unwrap().value {
+                ChainLink::Member {
+                    key,
+                    optional: false,
+                } => AssignTarget::Member {
+                    object: Box::new(AstNode::chain(*base, links)),
+                    key,
+                },
+                ChainLink::Index {
+                    index,
+                    optional: false,
+                } => AssignTarget::Index {
+                    object: Box::new(AstNode::chain(*base, links)),
+                    index,
+                },
+                _ => {
+                    self.emit(diag());
+                    AssignTarget::Error
+                }
+            },
+            // Expr::Member {
+            //     object,
+            //     key,
+            //     optional: false,
+            // } => AssignTarget::Member { object, key },
+            // Expr::Index {
+            //     object,
+            //     index,
+            //     optional: false,
+            // } => AssignTarget::Index { object, index },
             _ => {
-                self.emit(Diagnostic::new(
-                    Level::Error,
-                    expr.span,
-                    "Only member and index expressions are allowed in assignment".into(),
-                ));
+                self.emit(diag());
                 AssignTarget::Error
             }
         }
@@ -132,7 +159,7 @@ impl Parser<'_> {
             let expr = self.parse_expr()?;
             self.expect(Semi)?;
             Ok(AstNode::new(
-                Stmt::Return(Some(expr.into())),
+                Stmt::Return(Some(Box::new(expr))),
                 start.to(self.cursor.prev().span),
             ))
         } else {
@@ -140,19 +167,16 @@ impl Parser<'_> {
             if self.eat(Eq) {
                 let start = expr.span;
                 let target = self.expr_to_assign_target(expr);
-                let value = self.parse_expr()?.into();
+                let value = Box::new(self.parse_expr()?);
                 self.expect(Semi)?;
                 return Ok(AstNode::new(
-                    Stmt::Assign {
-                        target,
-                        value,
-                    },
+                    Stmt::Assign { target, value },
                     start.to(self.cursor.prev().span),
                 ));
             }
             self.expect(Semi)?;
             let span = expr.span.to(self.cursor.prev().span);
-            Ok(AstNode::new(Stmt::Expr(expr.into()), span))
+            Ok(AstNode::new(Stmt::Expr(Box::new(expr)), span))
         }
     }
 }

@@ -194,7 +194,7 @@ impl Parser<'_> {
                 Expr::StringLiteral(self.session.interner.borrow_mut().intern(&cooked)),
                 span,
             ))
-        } else if let Some(sym) = self.eat_ident(KwSet::STRICT) {
+        } else if let Some(sym) = self.eat_ident(KwSet::STRICT.without(kw::Underscore)) {
             Ok(AstNode::new(Expr::Variable(sym), self.cursor.prev().span))
         } else if self.eat(OpenParen) {
             let start = self.cursor.prev().span;
@@ -210,21 +210,22 @@ impl Parser<'_> {
             }
             let end = self.expect(CloseParen)?.span;
             let span = start.to(end);
-            Ok(AstNode::new(Expr::Group(expr.into()), span))
+            Ok(AstNode::new(Expr::Group(Box::new(expr)), span))
         } else {
             self.unexpected(self.cursor.first().span)
         }
     }
 
     fn parse_postfix_expr(&mut self) -> PResult<AstNode<Expr>> {
-        let mut result = self.parse_primary_expr()?;
+        let base = self.parse_primary_expr()?;
+        let mut links = vec![];
         loop {
-            result = match self.cursor.first().kind {
-                Dot => self.parse_member(result, false)?,
+            links.push(match self.cursor.first().kind {
+                Dot => self.parse_member(false)?,
                 QuestionDot => match self.cursor.second().kind {
-                    Ident(_) => self.parse_member(result, true)?,
-                    OpenBracket => self.parse_index(result, true)?,
-                    OpenParen => self.parse_call(result, true)?,
+                    Ident(_) => self.parse_member(true)?,
+                    OpenBracket => self.parse_index(true)?,
+                    OpenParen => self.parse_call(true)?,
                     _ => {
                         self.bump();
                         self.expected.extend_from_slice(&[
@@ -235,15 +236,9 @@ impl Parser<'_> {
                         return self.unexpected(self.cursor.first().span);
                     }
                 },
-                OpenBracket => self.parse_index(result, false)?,
-                OpenParen => self.parse_call(result, false)?,
-                Exclam => {
-                    let start = result.span;
-                    AstNode::new(
-                        Expr::Unary(result.into(), UnaryOp::NotNull),
-                        start.to(self.bump().span),
-                    )
-                }
+                OpenBracket => self.parse_index(false)?,
+                OpenParen => self.parse_call(false)?,
+                Exclam => AstNode::new(ChainLink::NotNull, self.bump().span),
                 _ => {
                     self.expected.extend_from_slice(&[
                         ExpectKind::TokenKind(Dot),
@@ -251,27 +246,25 @@ impl Parser<'_> {
                     ]);
                     break;
                 }
-            }
+            });
         }
-        Ok(result)
+        Ok(AstNode::chain(base, links))
     }
 
-    fn parse_member(&mut self, object: AstNode<Expr>, optional: bool) -> PResult<AstNode<Expr>> {
-        let start = object.span;
+    fn parse_member(&mut self, optional: bool) -> PResult<AstNode<ChainLink>> {
         self.bump();
-        let end = self.cursor.first().span;
+        let span = self.cursor.prev().span.to(self.cursor.first().span);
         Ok(AstNode::new(
-            Expr::Member {
-                object: object.into(),
+            ChainLink::Member {
                 key: self.expect_ident(KwSet::EMPTY)?,
                 optional,
             },
-            start.to(end),
+            span,
         ))
     }
 
-    fn parse_index(&mut self, object: AstNode<Expr>, optional: bool) -> PResult<AstNode<Expr>> {
-        let start = object.span;
+    fn parse_index(&mut self, optional: bool) -> PResult<AstNode<ChainLink>> {
+        let start = self.cursor.first().span;
         self.bump();
         if optional {
             self.bump();
@@ -279,17 +272,16 @@ impl Parser<'_> {
         let index = self.parse_expr()?;
         let end = self.expect(CloseBracket)?.span;
         Ok(AstNode::new(
-            Expr::Index {
-                object: object.into(),
-                index: index.into(),
+            ChainLink::Index {
+                index: Box::new(index),
                 optional,
             },
             start.to(end),
         ))
     }
 
-    fn parse_call(&mut self, callee: AstNode<Expr>, optional: bool) -> PResult<AstNode<Expr>> {
-        let start = callee.span;
+    fn parse_call(&mut self, optional: bool) -> PResult<AstNode<ChainLink>> {
+        let start = self.cursor.first().span;
         let mut args = vec![];
         self.bump();
         if optional {
@@ -304,11 +296,7 @@ impl Parser<'_> {
         }
         let end = self.cursor.prev().span;
         Ok(AstNode::new(
-            Expr::Call {
-                callee: callee.into(),
-                args,
-                optional,
-            },
+            ChainLink::Call { args, optional },
             start.to(end),
         ))
     }
@@ -331,7 +319,7 @@ impl Parser<'_> {
         let start = self.cursor.prev().span;
         let node = self.parse_unary_expr()?;
         let span = start.to(self.cursor.prev().span);
-        Ok(AstNode::new(Expr::Unary(node.into(), op), span))
+        Ok(AstNode::new(Expr::Unary(Box::new(node), op), span))
     }
 
     fn parse_binary_expr(&mut self, min_prec: u8) -> PResult<AstNode<Expr>> {

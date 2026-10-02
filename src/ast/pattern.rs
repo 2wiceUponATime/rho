@@ -2,6 +2,7 @@ use super::*;
 
 pub enum Pattern {
     Variable(Symbol),
+    Wildcard,
 }
 
 impl Pattern {
@@ -10,4 +11,4 @@ impl Pattern {
     }
 }
 
-assert_size!(Pattern, 4);
+assert_size!(Pattern, 8);
