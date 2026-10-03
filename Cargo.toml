@@ -6,6 +6,7 @@ edition = "2024"
 [dependencies]
 indexmap = "2.14.2"
 memchr = "2.8.3"
+thin-vec = "0.2.20"
 unicode-ident = "1.0.26"
 unicode-normalization = "0.1.25"
 

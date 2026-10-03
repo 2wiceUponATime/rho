@@ -174,12 +174,23 @@ impl<'a, 'f> Printer<'a, 'f> {
                 }
                 write!(self.f, ")")
             }
-            Expr::IntLiteral(value) => write!(self.f, "{value}"),
-            Expr::FloatLiteral(value) => write!(self.f, "{}", Self::format_float(*value)),
-            Expr::StringLiteral(sym) => {
-                let interner = self.session.interner.borrow();
-                let text = interner.get(*sym);
-                write!(self.f, "{:?}", text)
+            Expr::Literal(lit) => self.literal(lit),
+            Expr::Template { head, parts } => {
+                self.indentation += 1;
+                write!(self.f, "Template(\n{}", self.indent())?;
+                write!(self.f, "{:?}", self.session.interner.borrow().get(*head))?;
+                for part in parts {
+                    write!(self.f, "\n{}Sub(", self.indent())?;
+                    self.expr(&part.0.value)?;
+                    write!(
+                        self.f,
+                        ")\n{}{:?}",
+                        self.indent(),
+                        self.session.interner.borrow().get(part.1)
+                    )?;
+                }
+                self.indentation -= 1;
+                write!(self.f, "\n{})", self.indent())
             }
             Expr::Variable(sym) => write!(
                 self.f,
@@ -211,6 +222,18 @@ impl<'a, 'f> Printer<'a, 'f> {
                 self.indentation -= 1;
                 write!(self.f, "\n{})", self.indent())
             }
+        }
+    }
+
+    pub fn literal(&mut self, lit: &Literal) -> fmt::Result {
+        match lit {
+            Literal::Int(value) => write!(self.f, "{value}"),
+            Literal::Float(value) => write!(self.f, "{}", Self::format_float(*value)),
+            Literal::String(sym) => {
+                write!(self.f, "{:?}", self.session.interner.borrow().get(*sym))
+            }
+            Literal::Bool(value) => write!(self.f, "{value}"),
+            Literal::Null => write!(self.f, "null"),
         }
     }
 
@@ -256,6 +279,7 @@ impl<'a, 'f> Printer<'a, 'f> {
     pub fn ty(&mut self, ty: &Type) -> fmt::Result {
         match ty {
             Type::Variable(sym) => write!(self.f, "{}", self.session.interner.borrow().get(*sym)),
+            Type::Infer => write!(self.f, "_"),
         }
     }
 }

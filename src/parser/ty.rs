@@ -2,8 +2,11 @@ use super::*;
 
 impl Parser<'_> {
     pub(super) fn parse_ty(&mut self) -> PResult<AstNode<Type>> {
-        let ident = self.expect_ident(KwSet::STRICT)?;
-        let span = ident.span;
-        Ok(AstNode::new(Type::Variable(*ident), span))
+        if self.eat(Ident(kw::Underscore)) {
+            Ok(self.with_prev_span(Type::Infer))
+        } else {
+            let sym = self.expect_ident(KwSet::STRICT)?.value;
+            Ok(self.with_prev_span(Type::Variable(sym)))
+        }
     }
 }

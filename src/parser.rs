@@ -9,6 +9,7 @@ mod ty;
 
 use error::*;
 use std::num::ParseIntError;
+use thin_vec::thin_vec;
 
 pub use lexer::*;
 
@@ -106,6 +107,18 @@ impl<'psess> Parser<'psess> {
             },
             span,
         ))
+    }
+
+    fn prev_span(&self) -> Span {
+        self.cursor.prev().span
+    }
+
+    fn span_from(&self, start: Span) -> Span {
+        start.to(self.prev_span())
+    }
+
+    fn with_prev_span<T>(&self, value: T) -> AstNode<T> {
+        AstNode::new(value, self.prev_span())
     }
 
     pub fn parse_program(&mut self) -> Program {

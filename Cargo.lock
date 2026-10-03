@@ -100,6 +100,7 @@ dependencies = [
  "indexmap",
  "memchr",
  "tempfile",
+ "thin-vec",
  "unicode-ident",
  "unicode-normalization",
 ]
@@ -129,6 +130,12 @@ dependencies = [
  "rustix",
  "windows-sys",
 ]
+
+[[package]]
+name = "thin-vec"
+version = "0.2.20"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4568d7e143ec86d2021c338bae2afa88699e84b8e0af523626654fe6f03a1748"
 
 [[package]]
 name = "tinyvec"

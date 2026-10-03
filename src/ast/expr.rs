@@ -10,18 +10,28 @@ pub enum ChainLink {
         optional: bool,
     },
     Call {
-        args: Vec<AstNode<Expr>>,
+        args: ThinVec<AstNode<Expr>>,
         optional: bool,
     },
     NotNull,
 }
 
+pub enum Literal {
+    Int(i64),
+    Float(f64),
+    String(Symbol),
+    Bool(bool),
+    Null,
+}
+
 pub enum Expr {
     Group(Child<Self>),
-    Tuple(Vec<AstNode<Self>>),
-    IntLiteral(i64),
-    FloatLiteral(f64),
-    StringLiteral(Symbol),
+    Tuple(ThinVec<AstNode<Self>>),
+    Literal(Literal),
+    Template {
+        head: Symbol,
+        parts: ThinVec<(AstNode<Self>, Symbol)>,
+    },
     Variable(Symbol),
     Binary {
         lhs: Child<Self>,
@@ -31,7 +41,7 @@ pub enum Expr {
     Unary(Child<Self>, UnaryOp),
     Chain {
         base: Child<Expr>,
-        links: Vec<AstNode<ChainLink>>,
+        links: ThinVec<AstNode<ChainLink>>,
     },
 }
 
@@ -42,7 +52,7 @@ impl Expr {
 }
 
 impl AstNode<Expr> {
-    pub fn chain(base: AstNode<Expr>, links: Vec<AstNode<ChainLink>>) -> Self {
+    pub fn chain(base: AstNode<Expr>, links: ThinVec<AstNode<ChainLink>>) -> Self {
         match links.last() {
             Some(last) => {
                 let span = base.span.to(last.span);
@@ -117,4 +127,4 @@ pub enum UnaryOp {
     Await,
 }
 
-assert_size!(Expr, 32);
+assert_size!(Expr, 24);

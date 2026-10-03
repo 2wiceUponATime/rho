@@ -34,6 +34,7 @@ enum Assoc {
 enum LiteralType {
     SingleQuote,
     DoubleQuote,
+    Template,
 }
 
 #[derive(Clone, Copy)]
@@ -108,6 +109,7 @@ impl Parser<'_> {
             // todo: hexadecimal escapes
             '\'' if ctx.lit_type == LiteralType::SingleQuote => ('\'', 1),
             '"' if ctx.lit_type == LiteralType::DoubleQuote => ('"', 1),
+            '`' if ctx.lit_type == LiteralType::Template => ('`', 1),
             c => {
                 self.emit(Diagnostic::new(
                     Level::Warning,
@@ -144,8 +146,32 @@ impl Parser<'_> {
         }
     }
 
+    fn intern_string(&self) -> Symbol {
+        let span = self.prev_span();
+        let text = self.session.text(self.file_id, span);
+        let (start, end, lit_type) = match self.cursor.prev().kind {
+            TokenKind::StringLiteral => (
+                1,
+                1,
+                match text.as_bytes()[0] {
+                    b'\'' => LiteralType::SingleQuote,
+                    b'"' => LiteralType::DoubleQuote,
+                    _ => unreachable!(),
+                },
+            ),
+            TokenKind::NoSubTemplate => (1, 1, LiteralType::Template),
+            TokenKind::TemplateHead => (1, 2, LiteralType::Template),
+            TokenKind::TemplateMiddle => (1, 2, LiteralType::Template),
+            TokenKind::TemplateTail => (1, 1, LiteralType::Template),
+            _ => unreachable!(),
+        };
+        let text = &text[start..text.len() - end];
+        let cooked = self.cook(text, LiteralContext::new(lit_type, span.start + 1));
+        self.session.interner.borrow_mut().intern(&cooked)
+    }
+
     fn parse_tuple(&mut self, first: AstNode<Expr>, start: Span) -> PResult<AstNode<Expr>> {
-        let mut items = vec![first];
+        let mut items = thin_vec![first];
         while !self.eat(CloseParen) {
             items.push(self.parse_expr()?);
             if !self.eat(Comma) {
@@ -153,57 +179,67 @@ impl Parser<'_> {
                 break;
             }
         }
-        Ok(AstNode::new(
-            Expr::Tuple(items),
-            start.to(self.cursor.prev().span),
-        ))
+        Ok(AstNode::new(Expr::Tuple(items), self.span_from(start)))
     }
 
     fn parse_primary_expr(&mut self) -> PResult<AstNode<Expr>> {
         if self.eat(IntLiteral) {
-            let span = self.cursor.prev().span;
+            let span = self.prev_span();
             let text = self.session.text(self.file_id, span);
             Ok(AstNode::new(
-                Expr::IntLiteral(text.parse().unwrap_or_else(|e: ParseIntError| {
-                    self.emit(Diagnostic::new(
-                        Level::Error,
-                        self.file_id,
-                        span,
-                        format!("failed to parse integer: {e}"),
-                    ));
-                    0
-                })),
+                Expr::Literal(Literal::Int(text.parse().unwrap_or_else(
+                    |e: ParseIntError| {
+                        self.emit(Diagnostic::new(
+                            Level::Error,
+                            self.file_id,
+                            span,
+                            format!("failed to parse integer: {e}"),
+                        ));
+                        0
+                    },
+                ))),
                 span,
             ))
         } else if self.eat(FloatLiteral) {
-            let span = self.cursor.prev().span;
+            let span = self.prev_span();
             let text = self.session.text(self.file_id, span);
             Ok(AstNode::new(
-                Expr::FloatLiteral(text.parse().unwrap()),
+                Expr::Literal(Literal::Float(text.parse().unwrap())),
                 span,
             ))
-        } else if self.eat(StringLiteral) {
-            let span = self.cursor.prev().span;
-            let text = self.session.text(self.file_id, span);
-            let lit_type = match text.as_bytes()[0] {
-                b'\'' => LiteralType::SingleQuote,
-                b'"' => LiteralType::DoubleQuote,
-                _ => unreachable!(),
-            };
-            let text = &text[1..text.len() - 1];
-            let cooked = self.cook(text, LiteralContext::new(lit_type, span.start + 1));
+        } else if self.eat(Ident(kw::True)) {
+            Ok(self.with_prev_span(Expr::Literal(Literal::Bool(true))))
+        } else if self.eat(Ident(kw::False)) {
+            Ok(self.with_prev_span(Expr::Literal(Literal::Bool(false))))
+        } else if self.eat(Ident(kw::Null)) {
+            Ok(self.with_prev_span(Expr::Literal(Literal::Null)))
+        } else if self.eat(StringLiteral) || self.eat(NoSubTemplate) {
+            Ok(self.with_prev_span(Expr::Literal(Literal::String(self.intern_string()))))
+        } else if self.eat(TemplateHead) {
+            let head = self.intern_string();
+            let mut parts = thin_vec![];
+            loop {
+                let expr = self.parse_expr()?;
+                if self.eat(TemplateMiddle) {
+                    parts.push((expr, self.intern_string()));
+                    continue;
+                }
+                self.expect(TemplateTail)?;
+                parts.push((expr, self.intern_string()));
+                break;
+            }
             Ok(AstNode::new(
-                Expr::StringLiteral(self.session.interner.borrow_mut().intern(&cooked)),
-                span,
+                Expr::Template { head, parts },
+                self.prev_span(),
             ))
         } else if let Some(sym) = self.eat_ident(KwSet::STRICT.without(kw::Underscore)) {
-            Ok(AstNode::new(Expr::Variable(sym), self.cursor.prev().span))
+            Ok(self.with_prev_span(Expr::Variable(sym)))
         } else if self.eat(OpenParen) {
-            let start = self.cursor.prev().span;
+            let start = self.prev_span();
             if self.eat(CloseParen) {
                 return Ok(AstNode::new(
-                    Expr::Tuple(vec![]),
-                    start.to(self.cursor.prev().span),
+                    Expr::Tuple(thin_vec![]),
+                    self.span_from(start),
                 ));
             }
             let expr = self.parse_expr()?;
@@ -220,7 +256,7 @@ impl Parser<'_> {
 
     fn parse_postfix_expr(&mut self) -> PResult<AstNode<Expr>> {
         let base = self.parse_primary_expr()?;
-        let mut links = vec![];
+        let mut links = thin_vec![];
         loop {
             links.push(match self.cursor.first().kind {
                 Dot => self.parse_member(false)?,
@@ -255,7 +291,7 @@ impl Parser<'_> {
 
     fn parse_member(&mut self, optional: bool) -> PResult<AstNode<ChainLink>> {
         self.bump();
-        let span = self.cursor.prev().span.to(self.cursor.first().span);
+        let span = self.prev_span().to(self.cursor.first().span);
         Ok(AstNode::new(
             ChainLink::Member {
                 key: self.expect_ident(KwSet::EMPTY)?,
@@ -284,7 +320,7 @@ impl Parser<'_> {
 
     fn parse_call(&mut self, optional: bool) -> PResult<AstNode<ChainLink>> {
         let start = self.cursor.first().span;
-        let mut args = vec![];
+        let mut args = thin_vec![];
         self.bump();
         if optional {
             self.bump();
@@ -296,7 +332,7 @@ impl Parser<'_> {
                 break;
             }
         }
-        let end = self.cursor.prev().span;
+        let end = self.prev_span();
         Ok(AstNode::new(
             ChainLink::Call { args, optional },
             start.to(end),
@@ -318,9 +354,9 @@ impl Parser<'_> {
     }
 
     fn parse_rest_of_unary(&mut self, op: UnaryOp) -> PResult<AstNode<Expr>> {
-        let start = self.cursor.prev().span;
+        let start = self.prev_span();
         let node = self.parse_unary_expr()?;
-        let span = start.to(self.cursor.prev().span);
+        let span = self.span_from(start);
         Ok(AstNode::new(Expr::Unary(Box::new(node), op), span))
     }
 

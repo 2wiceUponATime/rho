@@ -67,12 +67,12 @@ impl Parser<'_> {
                 return_type,
                 body: self.parse_block()?,
             },
-            start.to(self.cursor.prev().span),
+            self.span_from(start),
         ))
     }
 
     fn parse_let(&mut self) -> PResult<AstNode<Stmt>> {
-        let start = self.cursor.prev().span;
+        let start = self.prev_span();
         let pattern = self.parse_pattern()?;
         let mut init = None;
         let mut ty = None;
@@ -89,12 +89,12 @@ impl Parser<'_> {
                 kind: VariableKind::Let(init),
                 ty,
             },
-            start.to(self.cursor.prev().span),
+            self.span_from(start),
         ))
     }
 
     fn parse_const(&mut self) -> PResult<AstNode<Stmt>> {
-        let start = self.cursor.prev().span;
+        let start = self.prev_span();
         let pattern = self.parse_pattern()?;
         let mut ty = None;
         if self.eat(Colon) {
@@ -109,7 +109,7 @@ impl Parser<'_> {
                 kind: VariableKind::Const(init),
                 ty,
             },
-            start.to(self.cursor.prev().span),
+            self.span_from(start),
         ))
     }
 
@@ -124,7 +124,7 @@ impl Parser<'_> {
 
     pub(super) fn parse_decl(&mut self) -> PResult<AstNode<Stmt>> {
         if self.eat(Ident(kw::Function)) {
-            return self.parse_function_decl(FunctionKind::Normal, self.cursor.prev().span);
+            return self.parse_function_decl(FunctionKind::Normal, self.prev_span());
         } else if self.eat(Ident(kw::Const)) {
             let first = self.cursor.prev();
             if self.eat(Ident(kw::Function)) {
@@ -150,18 +150,15 @@ impl Parser<'_> {
             return self.parse_decl();
         }
         if self.eat(Ident(kw::Return)) {
-            let start = self.cursor.prev().span;
+            let start = self.prev_span();
             if self.eat(Semi) {
-                return Ok(AstNode::new(
-                    Stmt::Return(None),
-                    start.to(self.cursor.prev().span),
-                ));
+                return Ok(AstNode::new(Stmt::Return(None), self.span_from(start)));
             }
             let expr = self.parse_expr()?;
             self.expect(Semi)?;
             Ok(AstNode::new(
                 Stmt::Return(Some(Box::new(expr))),
-                start.to(self.cursor.prev().span),
+                self.span_from(start),
             ))
         } else {
             let expr = self.parse_expr()?;
@@ -172,11 +169,11 @@ impl Parser<'_> {
                 self.expect(Semi)?;
                 return Ok(AstNode::new(
                     Stmt::Assign { target, value },
-                    start.to(self.cursor.prev().span),
+                    self.span_from(start),
                 ));
             }
             self.expect(Semi)?;
-            let span = expr.span.to(self.cursor.prev().span);
+            let span = expr.span.to(self.prev_span());
             Ok(AstNode::new(Stmt::Expr(Box::new(expr)), span))
         }
     }

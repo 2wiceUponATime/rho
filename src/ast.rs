@@ -10,8 +10,8 @@ pub use stmt::*;
 pub use ty::*;
 
 use printer::Printer;
-
 use std::{fmt, ops::Deref};
+use thin_vec::ThinVec;
 
 use crate::{assert_size, interner::Symbol, session::ParseSession, span::Span};
 
