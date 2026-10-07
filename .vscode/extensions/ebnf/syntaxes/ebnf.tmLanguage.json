@@ -1,0 +1,137 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "EBNF",
+  "scopeName": "source.ebnf",
+  "patterns": [
+    {
+      "include": "#expression"
+    }
+  ],
+  "repository": {
+    "comment": {
+      "name": "comment.line.ebnf",
+      "begin": "#",
+      "end": "$",
+      "patterns": [
+        {
+          "include": "#comment-tags"
+        }
+      ]
+    },
+    "comment-tags": {
+      "name": "keyword.codetag.ebnf",
+      "match": "\\b(?:TODO|FIXME|XXX|HACK|NOTE)"
+    },
+    "rule": {
+      "name": "entity.name.function.ebnf",
+      "match": "[a-z_][a-zA-Z0-9_]*"
+    },
+    "token": {
+      "name": "constant.other.token.ebnf",
+      "match": "[A-Z][a-zA-Z0-9_]*"
+    },
+    "parameter": {
+      "name": "variable.parameter.ebnf",
+      "match": "\\$([a-z_][a-z0-9_]*)?"
+    },
+    "string": {
+      "patterns": [
+        {
+          "name": "string.quoted.double.ebnf",
+          "match": "\\\"(?:[^\\\"\\\\]|\\\\.)*\\\""
+        }
+      ]
+    },
+    "quantifier-operator": {
+      "name": "keyword.operator.quantifier.ebnf",
+      "match": "[\\?\\*\\+]"
+    },
+    "alternate-operator": {
+      "name": "keyword.operator.alternate.ebnf",
+      "match": "\\|"
+    },
+    "assignment-operator": {
+      "name": "keyword.operator.definition.ebnf",
+      "match": "::="
+    },
+    "terminator": {
+      "name": "punctuation.terminator.rule.ebnf",
+      "match": ";"
+    },
+    "expression": {
+      "patterns": [
+        {
+          "include": "#string"
+        },
+        {
+          "include": "#comment"
+        },
+        {
+          "include": "#rule"
+        },
+        {
+          "include": "#token"
+        },
+        {
+          "include": "#parameter"
+        },
+        {
+          "include": "#quantifier-operator"
+        },
+        {
+          "include": "#alternate-operator"
+        },
+        {
+          "include": "#assignment-operator"
+        },
+        {
+          "include": "#terminator"
+        },
+        {
+          "include": "#grouping"
+        },
+        {
+          "include": "#parameters"
+        }
+      ]
+    },
+    "grouping": {
+      "name": "meta.group.ebnf",
+      "begin": "\\(",
+      "beginCaptures": {
+        "0": {
+          "name": "punctuation.section.group.begin.ebnf"
+        }
+      },
+      "end": "\\)",
+      "endCaptures": {
+        "0": {
+          "name": "punctuation.section.group.end.ebnf"
+        }
+      },
+      "patterns": [{
+        "include": "#expression"
+      }]
+    },
+    "parameters": {
+      "name": "meta.params.ebnf",
+      "begin": "\\[",
+      "beginCaptures": {
+        "0": {
+          "name": "punctuation.section.parameters.begin.ebnf"
+        }
+      },
+      "end": "\\]",
+      "endCaptures": {
+        "0": {
+          "name": "punctuation.section.parameters.end.ebnf"
+        }
+      },
+      "patterns": [
+        {
+          "include": "#expression"
+        }
+      ]
+    }
+  }
+}
