@@ -1,7 +1,5 @@
-mod cursor;
 mod error;
 mod expr;
-mod lexer;
 mod pattern;
 mod stmt;
 mod token_cursor;
@@ -11,12 +9,11 @@ use error::*;
 use std::num::ParseIntError;
 use thin_vec::thin_vec;
 
-pub use lexer::*;
-
 use crate::{
     ast::*,
     interner::{KwSet, Symbol, kw},
-    parser::{TokenKind::*, token_cursor::TokenCursor},
+    lexer::{TokenKind::*, *},
+    parser::token_cursor::TokenCursor,
     session::{Diagnostic, FileId, Level, ParseSession},
     span::Span,
 };
@@ -29,11 +26,11 @@ pub struct Parser<'psess> {
 }
 
 impl<'psess> Parser<'psess> {
-    pub fn new(lexer: Lexer<'psess, '_>) -> Self {
+    pub fn new(session: &'psess ParseSession, file_id: FileId, tokens: Vec<Token>) -> Self {
         Self {
-            session: lexer.session,
-            file_id: lexer.file_id,
-            cursor: lexer.into(),
+            session,
+            file_id,
+            cursor: TokenCursor::new(tokens),
             expected: vec![],
         }
     }

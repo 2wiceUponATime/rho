@@ -40,13 +40,3 @@ impl TokenCursor {
         self.first().kind == Eof
     }
 }
-
-impl From<Lexer<'_, '_>> for TokenCursor {
-    fn from(lexer: Lexer) -> Self {
-        TokenCursor::new(
-            lexer
-                .filter(|t| !matches!(t.kind, LineComment | BlockComment | Unknown))
-                .collect(),
-        )
-    }
-}

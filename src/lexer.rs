@@ -1,16 +1,20 @@
-use super::cursor::Cursor;
+mod cursor;
+pub mod delims;
+
 use crate::{
     assert_size,
     interner::Symbol,
+    lexer::delims::DelimKind,
     session::{Diagnostic, FileId, Level, ParseSession},
     span::Span,
 };
 use TokenKind::*;
+use cursor::Cursor;
 
 macro_rules! token_kinds {
     (
         other { $($other:tt)* }
-        punctuation { $($name:ident => $lexeme:expr,)* $(,)? }
+        punctuation { $($name:ident => $lexeme:literal,)* $(,)? }
     ) => {
         #[derive(Clone, Copy, Debug, PartialEq, Eq)]
         pub enum TokenKind {
@@ -138,6 +142,26 @@ impl TokenKind {
             _ => unreachable!(),
         }
         .to_owned()
+    }
+
+    pub fn open_delim(self) -> Option<DelimKind> {
+        Some(match self {
+            OpenParen => DelimKind::Parens,
+            OpenBracket => DelimKind::Brackets,
+            OpenBrace => DelimKind::Braces,
+            TemplateHead => DelimKind::Template,
+            _ => return None,
+        })
+    }
+
+    pub fn close_delim(self) -> Option<DelimKind> {
+        Some(match self {
+            CloseParen => DelimKind::Parens,
+            CloseBracket => DelimKind::Brackets,
+            CloseBrace => DelimKind::Braces,
+            TemplateTail => DelimKind::Template,
+            _ => return None,
+        })
     }
 }
 

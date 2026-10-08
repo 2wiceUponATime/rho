@@ -78,7 +78,7 @@ expr ::=
   | Ident
   ;
 
-tuple_elements ::= (expr ",")+ expr?
+tuple_elements ::= (expr ",")+ expr?;
 
 block_expr ::=
   | "do" block
