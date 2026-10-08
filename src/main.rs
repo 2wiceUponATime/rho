@@ -49,7 +49,9 @@ fn main() {
                 .display(&session)
         ),
     }
-    for diag in session.diagnostics.borrow().iter() {
+    let mut diags = session.diagnostics.borrow_mut();
+    diags.sort();
+    for diag in diags.iter() {
         eprintln!("{}", session.display_diag(diag))
     }
 }

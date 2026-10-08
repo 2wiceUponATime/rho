@@ -2,7 +2,7 @@ use std::{cell::RefCell, fs, io, ops::Deref, path::PathBuf};
 
 use crate::{interner::Interner, span::Span};
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct FileId(pub u32);
 
 pub enum FilePath {
@@ -94,6 +94,12 @@ impl Diagnostics {
             Some(prev) => prev.max(level),
             None => level,
         })
+    }
+
+    pub fn sort(&mut self) {
+        self.diagnostics.sort_by(|a, b| {
+            (a.file_id, a.span.start, a.span.end).cmp(&(b.file_id, b.span.start, b.span.end))
+        });
     }
 }
 

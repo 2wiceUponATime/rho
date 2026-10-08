@@ -109,6 +109,20 @@ fn missing_opener(file_id: FileId, token: &Token, close: DelimKind) -> Diagnosti
     )
 }
 
+fn mismatched(file_id: FileId, token: &Token, open: DelimKind, close: DelimKind) -> Diagnostic {
+    Diagnostic::new(
+        Level::Error,
+        file_id,
+        token.span,
+        format!(
+            "Expected {} to close {}, found {}",
+            open.describe_close(),
+            open.describe_open(),
+            close.describe_close()
+        ),
+    )
+}
+
 pub fn match_delims(session: &mut ParseSession, file_id: FileId, tokens: &[Token]) -> Vec<Partner> {
     let mut result = vec![Partner::unmatched(); tokens.len() - 1];
     let mut stack: Vec<Delim> = vec![];
@@ -155,9 +169,12 @@ pub fn match_delims(session: &mut ParseSession, file_id: FileId, tokens: &[Token
                         insertion_branch.step();
                         substitution_branch.step();
                     }
+                    let mut diags = session.diagnostics.borrow_mut();
                     if substitution_branch.errors > insertion_branch.errors {
+                        diags.push(missing_opener(file_id, token, close));
                         continue;
                     }
+                    diags.push(mismatched(file_id, token, open.kind, close));
                 }
                 result[i] = Partner::real(open.index as u32);
                 result[open.index] = Partner::real(i as u32);
